@@ -1,0 +1,5 @@
+blocks ok: ['Dhuri', 'Lehra', 'Malerkotla', 'Moonak', 'Sangrur', 'Sunam']
+JJAS issue dates 2016-19/21-25: 1098 (2016-06-01..2025-09-30)
+target dates: 1098, complete: 10, to process: 4
+DONE: 4 ok, 0 failed
+wrote C:\Users\Swarnim\Desktop\ML projects\saarthi-2\data\processed\historical\historical_gefs_leads_v2.parquet shape=(588, 9)
