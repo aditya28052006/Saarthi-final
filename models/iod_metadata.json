@@ -53,9 +53,11 @@
   "phase_acc": 0.74375,
   "phase_macroF1": 0.4166056166056166
  },
- "baseline_test": {
-  "persist_MAE": 0.15734375
- },
+  "baseline_test": {
+   "persist_MAE": 0.15734375,
+   "persist_phase_acc": 0.825
+  },
+  "conclusion": "LightGBM provides an ML-based IOD forecast, but persistence remains the stronger benchmark on the held-out test set. Therefore IOD is used as climate context rather than as a demonstrated improvement to rainfall prediction.",
  "seed": 42,
  "preprocessing": "causal lags/rolls + ENSO(prev-month) + MJO(monthly mean, NaN-tolerant); no scaler",
  "leakage_audit": "PASS (inputs<=M, target M+1; chronological splits)",
