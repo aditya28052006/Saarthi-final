@@ -615,4 +615,28 @@ READY FOR SPRING BOOT + REACT INTEGRATION) → Spring Boot REST API → React SI
 
 ---
 
+## 30. MJO Pipeline (2026-09-11, notebooks/08_MJO_CNN_LSTM.ipynb, 15 cells, 0 errors)
+
+- **Data:** `data/raw/mjo/MJO_RMM_cleaned_core.csv` (18,802 rows, 1974-06-01–2026-09-07; 1 gap 1978-03-16→1979-01-01 never bridged). Provenance NOT VERIFIED (no source in repo).
+- **Setup:** lookback 84 daily, horizon 7, chronological split by target date (train ≤2005: 11,067 / val 2006–15: 3,652 / test ≥2016: 3,903), training-only StandardScaler, gap-safe sequences (0 crossings, audited).
+- **Model:** Conv1D(32,3)→LSTM(32)→Dense(16)→Dense(2), 9,106 params, CPU (~0.9 min, 17 epochs, best val_loss 0.5085).
+- **Test (beats persistence honestly):** CNN-LSTM RMM1 MAE 0.627 (persist 0.884) / RMM2 0.560 (0.849); phase acc 0.349 (0.207), macroF1 0.347. Phase derived from predicted RMM (convention agreement 1.000).
+- **Artifacts:** `models/mjo_cnn_lstm.keras + mjo_scaler.pkl + mjo_metadata.json`, `data/processed/mjo_predictions.csv` (3,903×9). Reload max|diff| 0.00 PASS. Live: obs 2026-09-07 P7 → forecast 2026-09-14 P8, flagged stale. Gate: READY (probabilities N/A by design).
+- **Rule kept:** MJO is climate CONTEXT ONLY — no rainfall-retraining experiment run, so no improvement claimed; Raw GEFS winner untouched.
+
+## 31. IOD Status (2026-09-11): MODEL TRAINED — does NOT beat persistence (reported honestly)
+
+- **Data:** `data/raw/iod/dmi.had.long.csv` (monthly HadISST1.1 DMI, 1,877 valid 1870-01–2026-05; 7 trailing -9999 dropped, no interior gaps). Provenance VERIFIED from file header (PSL/NOAA). `IOD_nb.ipynb` unmodified; method (W50–70E/10S–10N, E90–110E/10S–0, ±0.4°C) reused.
+- **Notebook:** `notebooks/07_IOD_LightGBM.ipynb` (11 cells, 0 errors). Target DMI(M+1); ~25 causal features (DMI lags/rolls/trend, month sin/cos, ENSO prev-month, MJO monthly means); splits train≤2000 (309) / val 2001–12 (144) / test≥2013 (160); all leakage audits PASS.
+- **Result (honest):** LightGBM selected on val (0.1639 ≈ persist 0.1624); TEST MAE 0.1936 vs persistence 0.1573, corr 0.81, phase acc 0.744 vs 0.825. **Persistence wins — displayed as experimental context, no superiority claimed.**
+- **Artifacts:** `models/iod_best_model.joblib + iod_metadata.json`, `data/processed/iod_predictions.csv` (613×6). Reload PASS (diff 0.00). Live: data 2026-05 → forecast 2026-06 DMI +0.033 Neutral, stale=true.
+- **Website:** `/api/climate-context` IOD node live (Neutral, LightGBM, stale shown); card supports available/stale/unavailable states; rainfall untouched.
+
+## 32. Climate-Context + Website Integration (2026-09-11)
+
+- `data/processed/climate_context/{mjo_current_context.json, climate_context_summary.json, iod_status.json}`: real MJO forecast (P8, 2026-09-14) + ENSO El Niño (+1.44°C, Jun 2026, local ERSST) + IOD unavailable. Decision: USE CLIMATE CONTEXT ONLY.
+- Website (Spring Boot + vanilla JS, NO React): `ClimateContextService` (fail-soft) + `GET /api/climate-context` + `GET /api/mjo/latest`; timeline "Large-Scale Climate Context" card, fetch-first with unavailable fallback. Moonak verified 17.81 mm NORMAL; all endpoints HTTP 200; rainfall pipeline untouched.
+
+---
+
 *This file is the single source of truth for the next OpenCode session. If anything here contradicts an older file, this file wins.*

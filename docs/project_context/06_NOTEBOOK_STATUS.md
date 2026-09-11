@@ -140,3 +140,19 @@
 **Dashboard:** `dashboard/` (planned, not yet built) — block-level map of 6 `MultiPolygon` blocks colored by expected rainfall or most likely category.
 
 **Overall:** `01`–`06` COMPLETE (NB06 gate 25/25 PASS, READY FOR SPRING BOOT + REACT INTEGRATION). Python pipeline frozen. Next: Spring Boot REST API + React frontend.
+
+## Notebook 08: `08_MJO_CNN_LSTM.ipynb` (COMPLETE 2026-09-11, 15 cells, 0 errors)
+
+- RMM data 18,802 rows (1974–2026, 1 gap never bridged); L=84/H=7; splits train≤2005 (11,067) / val 2006–15 (3,652) / test≥2016 (3,903); train-only scaler; all leakage audits PASS.
+- Compact CNN-LSTM (9,106 params, CPU 0.9 min): test RMM1 MAE 0.627 vs persist 0.884; RMM2 0.560 vs 0.849; phase acc 0.349 vs 0.207.
+- Artifacts: `models/mjo_cnn_lstm.keras + mjo_scaler.pkl + mjo_metadata.json`, `data/processed/mjo_predictions.csv`; reload PASS; readiness READY.
+
+## IOD Notebook: `IOD_nb.ipynb` (teammate, UNMODIFIED — method reference)
+
+- Preprocessing + DMI method (W50–70E/10S–10N, E90–110E/10S–0, thresholds ±0.4°C) reused as-is; no `*.nc` needed since HadISST monthly DMI series supplied directly.
+
+## Notebook 07: `07_IOD_LightGBM.ipynb` (COMPLETE 2026-09-11, 11 cells, 0 errors)
+
+- Monthly HadISST DMI 1,877 rows; target DMI(M+1); ~25 causal features; splits train≤2000 (309) / val (144) / test≥2013 (160); leakage PASS.
+- LightGBM (val 0.1639) ≈ persistence (0.1624); TEST 0.1936 vs persist 0.1573 — persistence wins, reported honestly; phase acc 0.744 vs 0.825.
+- Artifacts: `models/iod_best_model.joblib + iod_metadata.json`, `data/processed/iod_predictions.csv`; reload PASS; live 2026-06 +0.033 Neutral (stale).

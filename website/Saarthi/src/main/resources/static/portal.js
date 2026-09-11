@@ -521,6 +521,46 @@ function renderForecastMatrix(matrix) {
     .join('');
 }
 
+async function loadClimateContext() {
+  const tbody = document.querySelector('#climate-context-tbody');
+  if (!tbody) return;
+  try {
+    const res = await fetch('/api/climate-context');
+    if (!res.ok) throw new Error(`climate-context ${res.status}`);
+    const ctx = await res.json();
+    if (ctx.available === false) {
+      tbody.innerHTML = `<tr><td>Climate context unavailable — ${ctx.reason || 'no data'}. Rainfall forecast above is unaffected.</td></tr>`;
+      return;
+    }
+    const rows = [];
+    const mjo = ctx.mjo || {};
+    if (mjo.available === false) {
+      rows.push(['MJO', `Unavailable — ${mjo.reason || 'no RMM data'}`]);
+    } else {
+      const f = mjo.forecast_H7 || {};
+      const o = mjo.observed || {};
+      rows.push(['MJO Phase', `Observed ${o.phase} (amp ${o.amplitude}) → forecast phase ${f.phase} (amp ${f.amplitude}) for ${f.forecast_date}${mjo.stale ? ' — from latest available observations' : ''}`]);
+      rows.push(['MJO RMM', `RMM1 ${f.RMM1}, RMM2 ${f.RMM2}`]);
+    }
+    const enso = ctx.enso || {};
+    rows.push(['ENSO', enso.available === false ? `Unavailable — ${enso.reason || ''}` : `${enso.status} (Niño-3.4 anomaly ${enso.nino34_anom}°C, ${enso.latest_month})`]);
+    const iod = ctx.iod || {};
+    let iodTxt;
+    if (iod.available === false) {
+      iodTxt = `Data unavailable · Module: integration-ready<br><span style="opacity:.75">Local OISST data unavailable — live IOD enables automatically once OISST ingest lands. No value fabricated.</span>`;
+    } else {
+      const stale = iod.stale ? `<br><span style="opacity:.75">Latest available IOD data is stale (data ${iod.data_month || ''}).</span>` : '';
+      const dmi = `${iod.dmi >= 0 ? '+' : ''}${iod.dmi}°C`;
+      iodTxt = `${iod.phase} IOD<br>DMI ${dmi} · Forecast: ${iod.forecast_month || ''} · Model: ${iod.model || ''}${stale}`;
+    }
+    rows.push(['IOD', iodTxt]);
+    tbody.innerHTML = rows.map(([k, v]) => `<tr><td><b>${k}</b></td><td>${v}</td></tr>`).join('');
+  } catch (err) {
+    console.error('Climate context failed:', err);
+    tbody.innerHTML = `<tr><td>Climate context unavailable — live data could not be loaded. Rainfall forecast above is unaffected.</td></tr>`;
+  }
+}
+
 // -------------------------------------------------------------
 // INITIALIZATION
 // -------------------------------------------------------------
@@ -543,6 +583,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initRiskMap();
   } else if (activeRoute === 'timeline') {
     loadTimelineForecast('Sangrur');
+    loadClimateContext();
   }
 
   window.addEventListener('languageChanged', () => {

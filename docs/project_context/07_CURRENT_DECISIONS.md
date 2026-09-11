@@ -167,7 +167,6 @@
 ---
 
 ### 17. Saarthi Full-Stack Integration (2026-09-10)
-
 **Decision:** Integrate the validated NB06 package into the existing Saarthi app (Spring Boot + vanilla HTML/JS/CSS + Leaflet — NO React migration, NO Streamlit/Flask) on branch `real-forecast-integration`, replacing the synthetic engine end-to-end while preserving UI structure.
 
 **Reason:** Round-1 app used hardcoded 8-block data, 0.15 stub probability, pattern-math forecasts and false RF/92.4% claims; the validated contract (`data/processed/application/`) is the2014 fix point.
@@ -177,3 +176,19 @@
 ---
 
 *All decisions above are reflected in the current code and must be preserved. If a decision needs to change, update this file and `00_MASTER_CONTEXT.md` together.*
+
+### 18. MJO + Climate-Context Extension (2026-09-11)
+
+**Decision:** Ship compact CNN-LSTM MJO forecaster as validated climate CONTEXT ONLY (test beats persistence: RMM1 0.627 vs 0.884); keep Raw GEFS rainfall winner; IOD stays fail-soft Unavailable (no OISST locally, no fabrication); website gains `/api/climate-context` + `/api/mjo/latest` + context card.
+
+**Reason:** No held-out experiment showed climate features beating GEFS, so honesty requires context-only. Time budget forced accepting IOD BLOCKED.
+
+**Consequence:** Demo story = GEFS rainfall + MJO/ENSO context + IOD method documented; `07_IOD_CNN_LSTM` remains future work.
+
+### 19. IOD LightGBM Result — Honest Persistence Win (2026-09-11)
+
+**Decision:** Ship LightGBM IOD forecaster as experimental context (test MAE 0.1936 vs persistence 0.1573 — persistence wins, reported as-is); display live DMI +0.033 Neutral (2026-06, stale-flagged) with model label; keep rainfall untouched.
+
+**Reason:** Monthly HadISST DMI (1,877 rows) supports a valid pipeline but not superiority; hiding this would corrupt the demo story.
+
+**Consequence:** Climate card shows IOD available+stale; integration decision stays USE CLIMATE CONTEXT ONLY.

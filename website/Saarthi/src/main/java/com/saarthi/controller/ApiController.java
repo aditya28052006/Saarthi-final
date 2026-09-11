@@ -27,6 +27,9 @@ public class ApiController {
     @Autowired
     private AgronomyService agronomyService;
 
+    @Autowired
+    private com.saarthi.service.ClimateContextService climateService;
+
     @GetMapping("/health")
     public ResponseEntity<HealthResponse> health() {
         Map<String, Object> latest = forecastService.getLatest();
@@ -133,6 +136,16 @@ public class ApiController {
     @PostMapping("/farmer-analysis")
     public ResponseEntity<FarmerAnalysisResponse> farmerAnalysis(@RequestBody FarmerAnalysisRequest req) {
         return ResponseEntity.ok(agronomyService.computeFarmerAnalysis(req));
+    }
+
+    @GetMapping("/climate-context")
+    public ResponseEntity<Map<String, Object>> getClimateContext() {
+        return ResponseEntity.ok(climateService.getSummary());
+    }
+
+    @GetMapping("/mjo/latest")
+    public ResponseEntity<Map<String, Object>> getMjoLatest() {
+        return ResponseEntity.ok(climateService.getMjo());
     }
 
     @SuppressWarnings("unchecked")
