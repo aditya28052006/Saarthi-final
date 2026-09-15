@@ -3,7 +3,7 @@
  "stale": true,
  "data_month": "2026-05",
  "forecast_month": "2026-06",
- "dmi": "western SST anomaly minus eastern SST anomaly (HadISST1.1 DMI series used directly)",
+ "dmi": 0.033,
  "phase": "Neutral",
  "model": "LightGBM",
  "test_MAE": 0.1936,
@@ -17,5 +17,7 @@
   "positive": ">= +0.4C",
   "negative": "<= -0.4C",
   "neutral": "otherwise"
- }
+ },
+ "dmi_definition": "western SST anomaly minus eastern SST anomaly (HadISST1.1 DMI series used directly)",
+ "dmi_source": "models/iod_metadata.json test context; forecast for 2026-06 from data_month 2026-05"
 }

@@ -400,5 +400,28 @@
         ]
       }
     ]
+  },
+  "summary": {
+    "district": "Sangrur",
+    "state": "Punjab",
+    "issue_date": "2026-09-09",
+    "valid_from": "2026-09-10",
+    "valid_to": "2026-09-16",
+    "forecast_horizon_days": 7,
+    "blocks_count": 6,
+    "highest_rainfall_block": "Lehra",
+    "highest_rainfall_mm": 22.81,
+    "lowest_rainfall_block": "Moonak",
+    "lowest_rainfall_mm": 17.81,
+    "high_risk_blocks": [],
+    "normal_blocks": [
+      "Dhuri",
+      "Lehra",
+      "Malerkotla",
+      "Moonak",
+      "Sangrur",
+      "Sunam"
+    ],
+    "low_risk_blocks": []
   }
 }

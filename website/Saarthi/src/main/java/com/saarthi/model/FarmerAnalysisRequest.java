@@ -4,7 +4,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
 
 public class FarmerAnalysisRequest {
-    private String block = "Sunam";
+    // P0: no silent block default. A missing/blank block must yield HTTP 404
+    // (unknown_block) via AgronomyService, never another block's rainfall.
+    // Callers (portal.js/app.js forms) always send an explicit block.
+    private String block;
     private String panchayat = "Suler Gherat";
     private String crop = "Paddy (PR-126)";
     private String soil = "Clay Loam";
@@ -27,7 +30,7 @@ public class FarmerAnalysisRequest {
     @JsonProperty("dry_days_14d")
     private Double dryDays14d;
 
-    public String getBlock() { return block != null ? block : "Sunam"; }
+    public String getBlock() { return block; }
     public void setBlock(String block) { this.block = block; }
 
     public String getPanchayat() { return panchayat != null ? panchayat : "Suler Gherat"; }

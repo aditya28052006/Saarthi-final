@@ -26,7 +26,7 @@ public class AgronomyService {
 
         if (probability >= 0.60) {
             map.put("Paddy (PR-126)", createCropItem(
-                    "High risk of early dry break. Delay transplanting by 7 days. If seedlings are over 30 days, maintain minimum root-zone puddle and mulch field boundaries.",
+                    "High risk of early dry spell (prototype heuristic — not an IMD onset/break forecast). Delay transplanting by 7 days. If seedlings are over 30 days, maintain minimum root-zone puddle and mulch field boundaries.",
                     "Direct seeded rice (DSR) or short-duration PR-126",
                     "Delay transplanting; maintain 2 cm puddle depth only using tubewell water.",
                     "Withhold top-dressing nitrogen until the next active monsoon spell."
@@ -44,7 +44,7 @@ public class AgronomyService {
                     "Incorporate well-decomposed farmyard manure (FYM) to enhance water holding capacity."
             ));
             map.put("Cotton", createCropItem(
-                    "High dry break risk. Postpone square initiation stage irrigation until moisture stresses ease. Inspect for whitefly.",
+                    "High prototype dry-spell risk (heuristic — not an IMD break forecast). Postpone square initiation stage irrigation until moisture stresses ease. Inspect for whitefly.",
                     "Short duration cotton hybrid",
                     "Alternate furrow irrigation to conserve 40% water.",
                     "Foliar spray of 2% potassium nitrate (13:0:45) to mitigate drought stress."
@@ -112,7 +112,7 @@ public class AgronomyService {
             ));
         } else {
             map.put("Paddy (PR-126)", createCropItem(
-                    "OPTIMAL CONDITIONS: Low dry-break probability (<30%). Favourable moisture profile. Proceed with planned transplanting or direct seeding across all Sangrur blocks.",
+                    "OPTIMAL CONDITIONS: Low prototype dry-spell probability (<30%, heuristic — not an IMD forecast). Favourable moisture profile. Proceed with planned transplanting or direct seeding across all Sangrur blocks.",
                     "Direct-seeded paddy (PR-126)",
                     "Transplant in laser-levelled fields; practice Alternate Wetting and Drying (AWD) to save 25% water.",
                     "Standard recommended schedule: Apply 1/3rd Urea + full DAP + MOP at transplanting."
@@ -175,7 +175,11 @@ public class AgronomyService {
         String irrigation = req.getIrrigation() != null ? req.getIrrigation() : "Canals";
 
         // REAL forecast context: P(LOW 7-day rainfall) is the dry probability.
-        // Throws BlockNotFoundException (HTTP 404) for unknown blocks — never a silent fallback.
+        // P0: missing/blank/unknown blocks throw BlockNotFoundException (HTTP 404,
+        // unknown_block) — never a silent fallback to Sunam or any other block.
+        if (block == null || block.isBlank()) {
+            throw new RealForecastService.BlockNotFoundException("(missing block)");
+        }
         Map<String, Object> forecast = realForecastService.findBlock(block)
                 .orElseThrow(() -> new RealForecastService.BlockNotFoundException(block));
         @SuppressWarnings("unchecked")
@@ -238,6 +242,8 @@ public class AgronomyService {
                 : rainfallCategory.equals("HIGH") ? "Low" : "Moderate");
         fourPillars.put("soil_moisture_risk", soilMoisturePct >= 38 ? "Low" : soilMoisturePct >= 28 ? "Moderate" : "High");
         fourPillars.put("crop_vulnerability_risk", crop.contains("PR-126") ? "Low" : crop.contains("Pusa-44") ? "High" : "Moderate");
+        // P0: key name retained for JSON stability; value is a prototype dry-spell
+        // heuristic (P(LOW 7-day rainfall)), NOT an IMD onset/break forecast.
         fourPillars.put("dry_break_risk", riskLevel);
 
         Map<String, Map<String, String>> allCrops = getAllCropAdvice(prob);
@@ -246,9 +252,9 @@ public class AgronomyService {
         Map<String, String> explanation = new LinkedHashMap<>();
         String outlookLine = "7-day outlook " + forecastTotal + " mm (" + rainfallCategory + "). ";
         explanation.put("en", "For " + crop + " in " + panchayat + " (" + block + " Block), " + outlookLine +
-                (decisionTone.equals("sow") ? "soil moisture (" + Math.round(soilMoisturePct) + "%) and monsoon probability indicate favorable sowing conditions." :
-                 decisionTone.equals("review") ? "moderate dry break risk (" + probPct + "%). Ensure supplemental irrigation before nursery transplanting." :
-                 "high dry spell risk (" + probPct + "%). Delay sowing by 7 days to avoid seedling desiccation."));
+                 (decisionTone.equals("sow") ? "soil moisture (" + Math.round(soilMoisturePct) + "%) and monsoon probability indicate favorable sowing conditions." :
+                  decisionTone.equals("review") ? "moderate prototype dry-spell risk (" + probPct + "%, heuristic — not an IMD onset/break forecast). Ensure supplemental irrigation before nursery transplanting." :
+                  "high dry-spell risk (" + probPct + "%, prototype heuristic — not an IMD onset/break forecast). Delay sowing by 7 days to avoid seedling desiccation."));
 
         explanation.put("hi", panchayat + " (" + block + " ब्लॉक) में " + crop + " के लिए, " +
                 (decisionTone.equals("sow") ? "मिट्टी की नमी (" + Math.round(soilMoisturePct) + "%) और मौसम बुवाई के लिए पूर्णतः अनुकूल हैं।" :
@@ -266,7 +272,7 @@ public class AgronomyService {
                 "🌱 *Crop:* " + crop + " | *Soil:* " + soil + "\n" +
                 "📊 *Decision:* *" + decisionTag + "*\n" +
                 "📅 *Recommended Window:* " + recWindow + "\n" +
-                "💧 *Root-Zone Moisture:* " + Math.round(soilMoisturePct) + "% | *Dry Break Risk:* " + probPct + "%\n\n" +
+                "💧 *Root-Zone Moisture:* " + Math.round(soilMoisturePct) + "% | *Dry-Spell Risk (heuristic):* " + probPct + "%\n\n" +
                 "💡 *Advisory:* " + explanation.get("en") + "\n" +
                 "— Powered by SAARTHI AI (SIH26086)");
 
@@ -291,7 +297,7 @@ public class AgronomyService {
         FarmerAnalysisResponse.Outputs outputs = new FarmerAnalysisResponse.Outputs();
         outputs.setDrySpellProbability(probPct);
         outputs.setRiskLevel(riskLevel);
-        outputs.setModelSource("Raw CHIRPS-GEFS 7-day outlook + prototype agronomy guidance");
+        outputs.setModelSource("Raw CHIRPS-GEFS 7-day outlook + prototype agronomy guidance (dry-spell indicator is a heuristic, not an IMD onset/break forecast)");
         outputs.setForecastTotalMm(forecastTotal);
         outputs.setRainfallCategory(rainfallCategory);
         outputs.setProbLow(((Number) probability.get("low")).doubleValue());

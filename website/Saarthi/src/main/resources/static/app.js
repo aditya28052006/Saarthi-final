@@ -7,6 +7,35 @@ let latestOutlookData = null;
 // Six validated legacy Bhuvan blocks (select fallback only; names come from API).
 const FALLBACK_BLOCKS = ['Dhuri', 'Lehra', 'Malerkotla', 'Moonak', 'Sangrur', 'Sunam'];
 
+// P0 freshness: same rule as src/utils/forecast_freshness.py and the backend
+// (stale = expired OR age_days > 2). A stale forecast must NEVER look
+// identical to a fresh one — every validity rendering goes through this.
+const STALE_AFTER_DAYS = 2;
+
+function freshnessOf(issueDate, validTo) {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const issue = new Date(`${issueDate}T00:00:00`);
+    const validEnd = new Date(`${validTo}T00:00:00`);
+    if (Number.isNaN(issue.getTime()) || Number.isNaN(validEnd.getTime())) return { unknown: true };
+    const ageDays = Math.round((today - issue) / 86400000);
+    const expired = today > validEnd;
+    return { ageDays, expired, stale: expired || ageDays > STALE_AFTER_DAYS };
+  } catch (err) {
+    return { unknown: true };
+  }
+}
+
+function freshnessLabel(issueDate, validFrom, validTo) {
+  const f = freshnessOf(issueDate, validTo);
+  const base = `Issued ${issueDate} · Valid ${validFrom} – ${validTo}`;
+  if (f.unknown) return `${base} · freshness unknown — verify before acting`;
+  if (f.expired) return `${base} · EXPIRED (${f.ageDays}d old) — forecast data are outdated`;
+  if (f.stale) return `${base} · STALE (${f.ageDays}d old) — may be outdated`;
+  return `${base} · fresh (${f.ageDays}d old)`;
+}
+
 function mapColor(category) {
   if (category === 'HIGH') return '#f27256';
   if (category === 'LOW') return '#e2be62';
@@ -104,7 +133,7 @@ function renderValidityMeta(forecast) {
     panel.className = 'seasonal-signals';
     document.querySelector('.analysis-grid')?.after(panel);
   }
-  panel.innerHTML = `<p class="card-kicker">Forecast validity</p><div><article><span>Issued</span><strong>${forecast.issue_date}</strong><small>forecast issue date</small></article><article><span>Valid period</span><strong>${forecast.valid_from} – ${forecast.valid_to}</strong><small>7-day horizon</small></article></div>`;
+  panel.innerHTML = `<p class="card-kicker">Forecast validity</p><div><article><span>Issued</span><strong>${forecast.issue_date}</strong><small>forecast issue date</small></article><article><span>Valid period</span><strong>${forecast.valid_from} – ${forecast.valid_to}</strong><small>7-day horizon</small></article></div><p class="validity-freshness" data-freshness="${freshnessOf(forecast.issue_date, forecast.valid_to).stale ? 'stale' : 'fresh'}" style="margin:8px 0 0;font-size:12px;font-weight:700;color:${freshnessOf(forecast.issue_date, forecast.valid_to).stale ? '#a33' : '#3c6e47'}">${freshnessLabel(forecast.issue_date, forecast.valid_from, forecast.valid_to)}</p>`;
 }
 
 function renderCropAdvice(category) {
@@ -157,7 +186,11 @@ function renderOutlookView(outlook) {
     renderLanguageAdvisory({ message: m.message, punjabi: m.message, hindi: m.message });
   }
   const upd = document.querySelector('.updated');
-  if (upd) upd.textContent = `Issued ${outlook.issue_date} · Valid ${outlook.valid_from} – ${outlook.valid_to}`;
+  if (upd) {
+    upd.textContent = freshnessLabel(outlook.issue_date, outlook.valid_from, outlook.valid_to);
+    upd.style.color = freshnessOf(outlook.issue_date, outlook.valid_to).stale ? '#a33' : '';
+    upd.style.fontWeight = freshnessOf(outlook.issue_date, outlook.valid_to).stale ? '700' : '';
+  }
 }
 
 async function loadOutlook() {

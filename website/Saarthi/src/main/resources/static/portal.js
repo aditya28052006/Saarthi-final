@@ -30,6 +30,63 @@ const PANCHAYATS = {
 
 const CATEGORY_COLORS = { LOW: '#e2be62', NORMAL: '#9ed683', HIGH: '#f27256' };
 
+// P0 freshness: same rule as src/utils/forecast_freshness.py and the backend
+// (stale = expired OR age_days > 2). Stale forecasts must NEVER render
+// identically to fresh ones.
+const STALE_AFTER_DAYS = 2;
+
+function freshnessOf(issueDate, validTo) {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const issue = new Date(`${issueDate}T00:00:00`);
+    const validEnd = new Date(`${validTo}T00:00:00`);
+    if (Number.isNaN(issue.getTime()) || Number.isNaN(validEnd.getTime())) return { unknown: true };
+    const ageDays = Math.round((today - issue) / 86400000);
+    const expired = today > validEnd;
+    return { ageDays, expired, stale: expired || ageDays > STALE_AFTER_DAYS };
+  } catch (err) {
+    return { unknown: true };
+  }
+}
+
+function freshnessLabel(issueDate, validFrom, validTo) {
+  const f = freshnessOf(issueDate, validTo);
+  const base = `Issued ${issueDate} · Valid ${validFrom} – ${validTo}`;
+  if (f.unknown) return `${base} · freshness unknown — verify before acting`;
+  if (f.expired) return `${base} · EXPIRED (${f.ageDays}d old) — forecast data are outdated`;
+  if (f.stale) return `${base} · STALE (${f.ageDays}d old) — may be outdated`;
+  return `${base} · fresh (${f.ageDays}d old)`;
+}
+
+// Paints a static (portal.html placeholder) freshness banner by element id.
+function paintStaticBanner(id, issueDate, validFrom, validTo) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const f = freshnessOf(issueDate, validTo);
+  el.textContent = freshnessLabel(issueDate, validFrom, validTo);
+  el.style.background = f.stale ? '#fbe3dc' : '#e4efe0';
+  el.style.color = f.stale ? '#a33' : '#3c6e47';
+  el.style.border = f.stale ? '1px solid #e0a08e' : '1px solid #b9d2bd';
+}
+
+// Injects (or updates) a freshness banner as the first child of container.
+function renderFreshnessBanner(container, issueDate, validFrom, validTo) {
+  if (!container) return;
+  const f = freshnessOf(issueDate, validTo);
+  let banner = container.querySelector('[data-freshness-banner]');
+  if (!banner) {
+    banner = document.createElement('p');
+    banner.setAttribute('data-freshness-banner', 'true');
+    banner.style.cssText = 'margin:0 0 12px;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:8px;';
+    container.prepend(banner);
+  }
+  banner.textContent = freshnessLabel(issueDate, validFrom, validTo);
+  banner.style.background = f.stale ? '#fbe3dc' : '#e4efe0';
+  banner.style.color = f.stale ? '#a33' : '#3c6e47';
+  banner.style.border = f.stale ? '1px solid #e0a08e' : '1px solid #b9d2bd';
+}
+
 // Page Titles and Subtitles
 const PAGE_METADATA = {
   farmer: {
@@ -226,7 +283,7 @@ function renderFarmerAdvisoryView(data) {
     gaugeDial.style.background = `conic-gradient(#abc87d 0% ${moisture}%, #e6ece0 ${moisture}% 100%)`;
   }
   let statusText = 'Adequate Moisture';
-  if (moisture < 25) statusText = 'Critical Deficit (Dry Break)';
+  if (moisture < 25) statusText = 'Critical Deficit (prototype dry-spell heuristic — not an IMD break forecast)';
   else if (moisture < 35) statusText = 'Moderate Moisture';
   else if (moisture > 48) statusText = 'High / Saturated';
   const gStatus = document.querySelector('#gauge-status');
@@ -289,6 +346,7 @@ async function initRiskMap() {
     const geo = await geoRes.json();
     const latest = await fcRes.json();
     latestCache = latest;
+    paintStaticBanner('map-freshness-banner', latest.forecast.issue_date, latest.forecast.valid_from, latest.forecast.valid_to);
     blockForecastCache = {};
     for (const b of latest.forecast.blocks) {
       blockForecastCache[b.block_name] = {
@@ -378,6 +436,7 @@ async function loadTimelineForecast(block = 'Sangrur') {
       throw new Error(err.message || `HTTP ${res.status}`);
     }
     const data = await res.json();
+    paintStaticBanner('timeline-freshness-banner', data.issue_date, data.valid_from, data.valid_to);
     blockForecastCache[data.block_name] = {
       block_name: data.block_name,
       forecast_7d_total_rainfall_mm: data.forecast_7d_total_rainfall_mm,

@@ -642,7 +642,7 @@
   overflow-x: auto;
 }
 
-/* 30-Day Matrix Table */
+/* 7-Day Matrix Table (prototype serves 7 days only) */
 .matrix-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);

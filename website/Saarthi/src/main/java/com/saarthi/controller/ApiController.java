@@ -35,6 +35,7 @@ public class ApiController {
         Map<String, Object> latest = forecastService.getLatest();
         @SuppressWarnings("unchecked")
         Map<String, Object> forecast = (Map<String, Object>) latest.get("forecast");
+        Map<String, Object> freshness = forecastService.getFreshness();
         HealthResponse resp = new HealthResponse();
         resp.setStatus("ok");
         resp.setForecastAvailable(true);
@@ -45,6 +46,12 @@ public class ApiController {
         resp.setBlocksAvailable(blocks.size());
         resp.setForecastHorizonDays(RealForecastService.HORIZON_DAYS);
         resp.setModel(RealForecastService.MODEL_TYPE);
+        resp.setGeneratedAt(Objects.toString(forecast.get("generated_at"), null));
+        resp.setSource(Objects.toString(freshness.get("source"), "Raw CHIRPS-GEFS (model_type=raw_gefs)"));
+        resp.setStale(Boolean.TRUE.equals(freshness.get("stale")));
+        Object age = freshness.get("age_days");
+        resp.setAgeDays(age instanceof Number ? ((Number) age).intValue() : -1);
+        resp.setExpiresAt(Objects.toString(freshness.get("expires_at"), null));
         return ResponseEntity.ok(resp);
     }
 
@@ -58,6 +65,9 @@ public class ApiController {
     public ResponseEntity<Map<String, Object>> getPanchayats(@RequestParam(value = "block", required = false) String block) {
         Map<String, Object> resp = new LinkedHashMap<>();
         if (block != null && !block.isEmpty()) {
+            if (!districtService.isKnownBlock(block)) {
+                throw new BlockNotFoundException(block);
+            }
             List<String> list = districtService.getPanchayats(block);
             resp.put("block", block);
             resp.put("panchayats", list);
@@ -86,6 +96,24 @@ public class ApiController {
     @GetMapping("/forecast/latest")
     public ResponseEntity<Map<String, Object>> getLatestForecast() {
         return ResponseEntity.ok(forecastService.getLatest());
+    }
+
+    /**
+     * P0: re-read the NB06 application package without restarting the JVM.
+     * Serve a refreshed forecast after: re-run NB05 -&gt; NB06 -&gt; copy package
+     * into {@code src/main/resources/forecast/} (or the {@code saarthi.forecast.path}
+     * directory), then call this endpoint. Never fabricates data — on a
+     * missing/invalid package the previous forecast keeps being served and this
+     * endpoint returns HTTP 500 with the cause.
+     */
+    @PostMapping("/forecast/reload")
+    public ResponseEntity<Map<String, Object>> reloadForecast() {
+        return ResponseEntity.ok(forecastService.reload());
+    }
+
+    @GetMapping("/forecast/freshness")
+    public ResponseEntity<Map<String, Object>> getFreshness() {
+        return ResponseEntity.ok(forecastService.getFreshness());
     }
 
     @GetMapping("/forecast/{blockId}")
@@ -148,6 +176,17 @@ public class ApiController {
         return ResponseEntity.ok(climateService.getMjo());
     }
 
+    /**
+     * P0: re-read the climate context package without restarting the JVM.
+     * Fail-soft (mirrors startup): on a missing/invalid package returns
+     * {@code available=false} with HTTP 200 — the rainfall forecast keeps
+     * working. DMI/IOD values pass through as numeric JSON numbers.
+     */
+    @PostMapping("/climate-context/reload")
+    public ResponseEntity<Map<String, Object>> reloadClimateContext() {
+        return ResponseEntity.ok(climateService.reload());
+    }
+
     @SuppressWarnings("unchecked")
     private BlockForecastResponse toBlockForecast(Map<String, Object> b) {
         Map<String, Object> latest = forecastService.getLatest();
@@ -194,6 +233,14 @@ public class ApiController {
         err.put("message", ex.getMessage());
         err.put("valid_blocks", RealForecastService.BLOCKS);
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(err);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleReloadFailure(IllegalStateException ex) {
+        Map<String, Object> err = new LinkedHashMap<>();
+        err.put("error", "forecast_reload_failed");
+        err.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

@@ -3,10 +3,17 @@ package com.saarthi.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 /**
@@ -37,20 +44,82 @@ public class RealForecastService {
     private final Map<String, Map<String, Object>> byId = new LinkedHashMap<>();
     private final Map<String, Map<String, Object>> byName = new LinkedHashMap<>();
 
+    /**
+     * Optional external forecast directory. When {@code saarthi.forecast.path} is set
+     * (e.g. {@code -Dsaarthi.forecast.path=.../data/processed/application}), the service
+     * reads {@code latest_forecast.json}/{@code blocks.json}/{@code sangrur_blocks.geojson}
+     * from that directory so a refreshed NB06 package can be served without rebuilding
+     * the jar. When unset/blank, the packaged classpath copies are used.
+     */
+    @Value("${saarthi.forecast.path:}")
+    private String externalForecastPath;
+
+    /**
+     * Forecasts older than this many calendar days (issue_date vs today) are reported
+     * as stale, as is any forecast whose valid_to has passed. Same rule as
+     * {@code src/utils/forecast_freshness.py} and {@code docs/api/api-contract.md}.
+     */
+    public static final int STALE_AFTER_DAYS = 2;
+
     @PostConstruct
-    public void load() {
+    public synchronized void load() {
+        byId.clear();
+        byName.clear();
         try {
-            latest = readJson("forecast/latest_forecast.json");
-            blocksDoc = readJson("forecast/blocks.json");
-            try (InputStream in = new ClassPathResource("forecast/sangrur_blocks.geojson").getInputStream()) {
-                geoJson = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            Path ext = externalDir();
+            if (ext != null) {
+                latest = readExternalJson(ext.resolve("latest_forecast.json"));
+                blocksDoc = readExternalJson(ext.resolve("blocks.json"));
+                geoJson = Files.readString(ext.resolve("sangrur_blocks.geojson"), StandardCharsets.UTF_8);
+            } else {
+                latest = readJson("forecast/latest_forecast.json");
+                blocksDoc = readJson("forecast/blocks.json");
+                try (InputStream in = new ClassPathResource("forecast/sangrur_blocks.geojson").getInputStream()) {
+                    geoJson = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                }
             }
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to load validated forecast package from classpath:/forecast/. "
+            throw new IllegalStateException("Failed to load validated forecast package"
+                    + (externalDir() != null ? " from saarthi.forecast.path=" + externalDir() + ". "
+                        : " from classpath:/forecast/. ")
                     + "Copy data/processed/application/{latest_forecast.json,blocks.json,sangrur_blocks.geojson} "
-                    + "into src/main/resources/forecast/. Cause: " + e.getMessage(), e);
+                    + "into src/main/resources/forecast/ (or point saarthi.forecast.path at it). Cause: " + e.getMessage(), e);
         }
         validate();
+    }
+
+    /**
+     * Re-reads the forecast package (external directory if configured, else classpath).
+     * Allows serving a refreshed NB06 package without restarting the JVM:
+     * {@code POST /api/forecast/reload}. Never fabricates data — a missing/invalid
+     * package throws and the previously loaded forecast keeps being served.
+     */
+    public synchronized Map<String, Object> reload() {
+        Map<String, Object> prevLatest = latest;
+        Map<String, Object> prevBlocks = blocksDoc;
+        String prevGeo = geoJson;
+        LinkedHashMap<String, Map<String, Object>> prevById = new LinkedHashMap<>(byId);
+        LinkedHashMap<String, Map<String, Object>> prevByName = new LinkedHashMap<>(byName);
+        try {
+            load();
+        } catch (RuntimeException e) {
+            latest = prevLatest;
+            blocksDoc = prevBlocks;
+            geoJson = prevGeo;
+            byId.clear();
+            byId.putAll(prevById);
+            byName.clear();
+            byName.putAll(prevByName);
+            throw e;
+        }
+        return getFreshness();
+    }
+
+    private Path externalDir() {
+        if (externalForecastPath != null && !externalForecastPath.isBlank()) {
+            return Paths.get(externalForecastPath.trim());
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")
@@ -60,7 +129,64 @@ public class RealForecastService {
         }
     }
 
+    private Map<String, Object> readExternalJson(Path path) throws Exception {
+        try (InputStream in = Files.newInputStream(path)) {
+            return mapper.readValue(in, new TypeReference<Map<String, Object>>() {});
+        }
+    }
+
+    /**
+     * Explicit freshness metadata for the currently loaded forecast. A stale result
+     * is a valid state (latest AVAILABLE bundle may be older than today) — callers
+     * must expose it, never hide it. Same rule as
+     * {@code src/utils/forecast_freshness.py}: stale = expired OR age_days &gt; 2.
+     */
     @SuppressWarnings("unchecked")
+    public synchronized Map<String, Object> getFreshness() {
+        Map<String, Object> out = new LinkedHashMap<>();
+        if (latest == null) {
+            out.put("available", false);
+            out.put("reason", "No forecast package loaded");
+            return out;
+        }
+        Map<String, Object> forecast = (Map<String, Object>) latest.get("forecast");
+        if (forecast == null) {
+            out.put("available", false);
+            out.put("reason", "Loaded package has no 'forecast' object");
+            return out;
+        }
+        String issue = Objects.toString(forecast.get("issue_date"), null);
+        String validFrom = Objects.toString(forecast.get("valid_from"), null);
+        String validTo = Objects.toString(forecast.get("valid_to"), null);
+        String generatedAt = Objects.toString(forecast.get("generated_at"), null);
+        LocalDate today = LocalDate.now();
+        long ageDays = -1;
+        boolean expired = false;
+        boolean stale = true;
+        try {
+            LocalDate issueDate = LocalDate.parse(issue);
+            LocalDate validToDate = LocalDate.parse(validTo);
+            ageDays = ChronoUnit.DAYS.between(issueDate, today);
+            expired = today.isAfter(validToDate);
+            stale = expired || ageDays > STALE_AFTER_DAYS;
+        } catch (Exception e) {
+            out.put("available", false);
+            out.put("reason", "Unparsable forecast dates: " + e.getMessage());
+            return out;
+        }
+        out.put("available", true);
+        out.put("issue_date", issue);
+        out.put("valid_from", validFrom);
+        out.put("valid_to", validTo);
+        out.put("generated_at", generatedAt);
+        out.put("source", "Raw CHIRPS-GEFS (model_type=raw_gefs)");
+        out.put("stale", stale);
+        out.put("expired", expired);
+        out.put("age_days", ageDays);
+        out.put("expires_at", validTo);
+        return out;
+    }
+
     private void validate() {
         Map<String, Object> forecast = (Map<String, Object>) latest.get("forecast");
         if (forecast == null) throw new IllegalStateException("latest_forecast.json: missing 'forecast'");

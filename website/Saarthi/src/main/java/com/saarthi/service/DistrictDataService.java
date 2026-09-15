@@ -55,8 +55,16 @@ public class DistrictDataService {
 
     public List<String> getBlocks() { return BLOCKS; }
 
+    public boolean isKnownBlock(String block) {
+        return block != null && BLOCK_PANCHAYATS.containsKey(block);
+    }
+
+    /**
+     * Panchayat list for a known block. Returns {@code null} for unknown blocks —
+     * callers must return HTTP 404 (unknown_block), never silently substitute Sunam.
+     */
     public List<String> getPanchayats(String block) {
-        return BLOCK_PANCHAYATS.getOrDefault(block, BLOCK_PANCHAYATS.get("Sunam"));
+        return BLOCK_PANCHAYATS.get(block);
     }
 
     public int getTotalPanchayats() {

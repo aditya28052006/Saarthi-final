@@ -17,6 +17,14 @@ public class HealthResponse {
     @JsonProperty("forecast_horizon_days")
     private int forecastHorizonDays;
     private String model;
+    @JsonProperty("generated_at")
+    private String generatedAt;
+    private String source;
+    private boolean stale;
+    @JsonProperty("age_days")
+    private int ageDays;
+    @JsonProperty("expires_at")
+    private String expiresAt;
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
@@ -34,4 +42,14 @@ public class HealthResponse {
     public void setForecastHorizonDays(int forecastHorizonDays) { this.forecastHorizonDays = forecastHorizonDays; }
     public String getModel() { return model; }
     public void setModel(String model) { this.model = model; }
+    public String getGeneratedAt() { return generatedAt; }
+    public void setGeneratedAt(String generatedAt) { this.generatedAt = generatedAt; }
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
+    public boolean isStale() { return stale; }
+    public void setStale(boolean stale) { this.stale = stale; }
+    public int getAgeDays() { return ageDays; }
+    public void setAgeDays(int ageDays) { this.ageDays = ageDays; }
+    public String getExpiresAt() { return expiresAt; }
+    public void setExpiresAt(String expiresAt) { this.expiresAt = expiresAt; }
 }
