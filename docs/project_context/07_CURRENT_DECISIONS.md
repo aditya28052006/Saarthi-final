@@ -192,3 +192,65 @@
 **Reason:** Monthly HadISST DMI (1,877 rows) supports a valid pipeline but not superiority; hiding this would corrupt the demo story.
 
 **Consequence:** Climate card shows IOD available+stale; integration decision stays USE CLIMATE CONTEXT ONLY.
+
+---
+### 20. Frozen GEFS Dataset — Phase 1B.1 Ingestion Complete (2026-09-17)
+
+**Decision:** Raw NOAA GEFS APCP dataset ingested and frozen for the SAARTHI Phase 1B comparison arm. All 610 dates fully processed; dataset is closed for modifications unless a genuine integrity issue is found.
+
+**Reason:** Phase 1B.1 completed bounded 25-date batches until 366/366 test dates, 610/610 total dates, and 25,620 × 14 parquet were achieved. The dataset is now the authoritative baseline for the GEFS comparison arm. No further ingestion runs should be performed unless new dates or data sources require addition.
+
+**Consequence:**
+- `data/processed/phase1b/raw_gefs_apcp_leads.parquet` is the authoritative frozen artifact: exactly 25,620 rows × 14 columns, 610 unique forecast dates, 42 rows per date, leads 1–7 only, six legacy Sangrur blocks (Dhuri, Lehra, Malerkotla, Moonak, Sangrur, Sunam).
+- 2018-07-15 is intentionally excluded (GEFS v11-era exclusion by design; different model from v12, excluded from raw-APCP arm; CHIRPS-GEFS baseline covers this period).
+- 15 failed dates recorded in manifest: `2018-07-15` (v11 exclusion) + 14 dates from historical network/availability attempts. The 14 non-v11 failed dates must NOT be treated as incomplete since their data is already present in the final parquet (42 rows each, no incomplete groups).
+- Train/validation/test split convention preserved: val = 244 dates (2021–2022), test = 366 dates (2023–2025). No train dates in the parquet split (2016–2019 years are excluded from the raw-APCP arm by design; CHIRPS-GEFS baseline covers those years consistently).
+- All zonal statistics use the 6 legacy Bhuvan blocks from `sangrur_blocks_bhuvan.gpkg:184320` layer `sangrur_blocks`.
+- No model retraining, IFS/AIFS work, or rainfall methodology changes are permitted on the basis of this dataset.
+- Dataset is immutable: any future additions must be in a new phase (1B.3+) and must not modify the existing 25,620 × 14 artifact.
+
+**Frozen GEFS Convention (immutable):**
+- 00Z initialization only
+- Lead 1 through Lead 7 only (lead 0 excluded)
+- Forecast buckets f030 through f192 (D+1 through D+7)
+- Six legacy Sangrur Bhuvan blocks: Dhuri, Lehra, Malerkotla, Moonak, Sangrur, Sunam
+- APCP 6-h bucket accumulation: [H-6, H] in kg/m² == mm
+- Pre-2021 operational GEFS is v11 (1.0 grid, undecodable range slices) — excluded by design
+- 2018-07-15 is the single v11-era exclusion date (recorded in manifest failed_dates, excluded from parquet)
+- CHIRPS-GEFS v3 is the existing rainfall baseline; this dataset is the new comparison arm
+- Area-weighted zonal means over 6 blocks using `all_touched=True` geometry mask at 0.25-degree resolution
+- Ensemble mean (v12-31mem, 31 members + geavg) for v12 era (2021+)
+
+---
+*All decisions above are reflected in the current code and must be preserved. If a decision needs to change, update this file and `00_MASTER_CONTEXT.md` together.*
+
+### 21. Phase 1B.3 Fair Common-Period Result — CHIRPS-GEFS Carried Forward (2026-09-18)
+
+**Decision:** Carry forward **CHIRPS-GEFS** as the rainfall source on the empirical common-period result; keep the frozen raw GEFS APCP parquet untouched as a documented comparison arm.
+
+**Reason:** On the genuinely common 610-date JJAS set (2021-06-01..2025-09-30, 25,620 daily rows/arm, 3,660 7-day forecasts/arm, 00Z, leads D+1..D+7, frozen T33/T66), CHIRPS-GEFS 7-day MAE 19.336 / R² 0.338 beats raw GEFS APCP 7-day MAE 20.457 / R² 0.246 (ΔMAE +1.121, ΔR² −0.092 favouring CHIRPS-GEFS); daily overall MAE 4.087 vs 4.153 (Δ +0.066). Test-slice reproduction check passes (CHIRPS-GEFS test MAE 19.539 ≈ frozen 19.54). Repro: `python src/evaluation/phase1b_3_common_evaluation.py` → `data/processed/phase1b/phase1b_3_*` + `reports/phase1b/PHASE1B_3_GEFS_VS_CHIRPSGEFS_REPORT.md`.
+
+**Consequence:**
+- No frozen source parquet/CSV modified; no downloads; no retraining; no threshold/geography changes.
+- Prior `phase1b_comparison_report.json` (34-date partial GEFS arm) is superseded for comparison purposes by `phase1b_3_common_report.json`; it is left in place, not deleted.
+
+### 22. Phase 1B.4 IFS Access Check — TIGGE History BLOCKED, No Download (2026-09-18)
+
+**Decision:** STOP before any IFS download; historical IFS ENS acquisition is BLOCKED on credentials. No files under `data/processed/phase1b/` were modified in this phase.
+
+**Reason:** Access check 2026-09-18 confirmed: (a) intended history source is TIGGE via ECDS portal/MARS (registration + SSO required) — no anonymous bulk route; (b) no credentials in this environment (no `ECMWF_API_KEY`/`ECMWF_API_URL`/`MARS_API_KEY`, no `~/.ecmwfrc`/`~/.ecmwfapirc`); (c) `ecmwf-opendata` + `eccodes` are installed but Open Data keeps only the last ~12 runs (live/format-validation only, not 2016–2025 history); (d) existing `src/data/build_ifsens_leads.py` already encodes this honestly (`--tigge` fails loudly, `--opendata-test` proven 2026-09-15 on 2 live `ifs-hres` deterministic dates, NOT the ENS headline). Re-running `--opendata-test` would append live deterministic rows unrelated to the historical ENS task, so it was deliberately not run.
+
+**Consequence:**
+- To unblock, user must: register at `ecmwf.int`, request MARS/TIGGE access, configure credentials, then run `python src/data/build_ifsens_leads.py --tigge YYYY-MM-DD` for a one-date pilot, then bounded JJAS acquisition (2016–2019 / 2021–2022 / 2023–2025, 00Z, tp steps 0..168 differenced to D+1..D+7, 6 Bhuvan blocks). Estimated volume once unblocked: ~4 MB tp-only per init × ~1098 JJAS inits ≈ ~4.4 GB + processing.
+- Frozen GEFS parquet untouched; no retraining; no threshold/geography changes; Phase 1B.5 three-way comparison stays pending.
+
+### 23. Phase 1+2 Live Operational Weather — Open-Meteo + ECMWF IFS (2026-09-19)
+
+**Decision:** SAARTHI's live rainfall outlook is now served from an operational NWP feed — Open-Meteo delivery layer + ECMWF IFS model (`models=ecmwf_ifs`, 16 `Asia/Kolkata` days) — aggregated to the 6 legacy Sangrur blocks. New additive endpoints `GET /api/weather/forecast`, `/forecast/{blockId}`, `/freshness`; timeline page shows a "Live Operational Outlook" card. Historical TIGGE/IFS bulk acquisition is no longer required for the live product.
+
+**Reason:** Live-verified 2026-09-19 (keyless HTTP 200, 16 daily dates, 384 hourly steps, units mm/°C/%/km/h; backend smoke: 6 blocks × 16 days, multipoint n4–n7, no centroid fallback; weather tests 30/30). SAARTHI does NWP nowhere — its value is block downscaling, freshness guarantees, and farm advisories. Full rationale: `docs/project_context/11_LIVE_WEATHER_ARCHITECTURE.md`.
+
+**Consequence:**
+- CHIRPS-GEFS/GEFS work (decisions 20–22) retained as historical validation/background; `/api/forecast/*` legacy endpoints, NB01–NB06, frozen parquets, thresholds, and geography unchanged.
+- Days 1–7 operational, 8–15 extended/lower-confidence, 16–30 NOT served (never synthesised); missing rainfall stays null, never zero-filled.
+- SAARTHI makes no outperformance claim vs ECMWF IFS. Phase 3 adds ENSO/IOD/MJO climate intelligence for days 16–30 and agricultural risk, strictly separate from the deterministic feed.

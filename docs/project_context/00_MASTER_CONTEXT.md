@@ -280,6 +280,14 @@ All not yet built in Notebook 02 — Notebook 02 only sets up the forecast-vs-ob
 
 **Live (demo):** `Current date → Latest CHIRPS through today, latest CHIRPS-GEFS issued today, current ENSO, static soil/spatial → Predict next 7–10 days` for 6 blocks, with map. Use real current data, not an old historical example. Do not mix workflows.
 
+> **Phase 1+2 update (2026-09-19):** the live product outlook is now served from an
+> operational NWP feed — Open-Meteo delivery + ECMWF IFS (`models=ecmwf_ifs`, 16
+> `Asia/Kolkata` days) aggregated to the 6 blocks (`GET /api/weather/*`, timeline
+> “Live Operational Outlook” card). SAARTHI does not predict rainfall itself anymore;
+> it consumes the operational forecast and adds hyperlocal agricultural intelligence.
+> The CHIRPS-GEFS pipeline above remains the historical validation/background
+> (decisions 20–23, `docs/project_context/11_LIVE_WEATHER_ARCHITECTURE.md`).
+
 ---
 
 ## 18. Architecture

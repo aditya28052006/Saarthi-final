@@ -580,6 +580,74 @@ function renderForecastMatrix(matrix) {
     .join('');
 }
 
+// -------------------------------------------------------------
+// 3b. LIVE OPERATIONAL OUTLOOK (Phase 1+2: /api/weather/*)
+// -------------------------------------------------------------
+// Block-level live rainfall from Open-Meteo delivery + ECMWF IFS NWP.
+// Display-only view: no forecasting here, no zero-filling, horizon served
+// honestly (16 days; 16–30 explicitly unavailable).
+
+async function loadLiveOutlook(block = 'Sangrur') {
+  const tbody = document.querySelector('#live-matrix-tbody');
+  const metaEl = document.querySelector('#live-meta');
+  const freshEl = document.querySelector('#live-freshness');
+  const sel = document.querySelector('#live-block-select');
+  if (!tbody || !metaEl) return;
+  if (sel && sel.value !== block) sel.value = block;
+
+  tbody.innerHTML = `<tr><td colspan="4">Loading live outlook for ${block}…</td></tr>`;
+  metaEl.textContent = 'Live outlook loading…';
+
+  try {
+    const res = await fetch(`/api/weather/forecast/${encodeURIComponent(block)}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    const b = data.block || {};
+    const days = b.days || [];
+
+    const staleTag = data.stale
+      ? ` · STALE${data.stale_warning ? ` — ${data.stale_warning}` : ' — cached forecast served'}` : ' · fresh';
+    metaEl.textContent =
+      `${b.block_name || block}: ${data.provider || 'Open-Meteo'} / ${data.model || 'ECMWF IFS'} · ` +
+      `issued ${data.issue_date} · ${days.length}-day horizon${staleTag}`;
+
+    if (freshEl) {
+      freshEl.textContent = data.stale
+        ? `Live forecast STALE (retrieved ${data.retrieved_at}) — may be outdated`
+        : `Live forecast fresh (retrieved ${data.retrieved_at})`;
+      freshEl.style.background = data.stale ? '#fbe3dc' : '#e4efe0';
+      freshEl.style.color = data.stale ? '#a33' : '#3c6e47';
+      freshEl.style.border = data.stale ? '1px solid #e0a08e' : '1px solid #b9d2bd';
+    }
+
+    const cum = (c) => (c && c.available ? `${c.rainfall_mm} mm` : 'unavailable');
+    tbody.innerHTML = days.map((d) => {
+      const rain = d.rainfall_mm == null
+        ? '<span style="color:#a33;">No data (not zero)</span>'
+        : `<strong style="color: #427c9c;">${d.rainfall_mm} mm</strong>`;
+      const prob = d.rain_probability_pct == null ? '—' : `${d.rain_probability_pct}%`;
+      return `<tr><td><b>Day ${d.horizon_day}</b></td><td>${d.date}</td><td>${rain}</td><td>${prob}</td></tr>`;
+    }).join('') + `
+      <tr><td colspan="2"><b>3-day total</b></td><td colspan="2">${cum(b.cum_3d_mm)}</td></tr>
+      <tr><td colspan="2"><b>7-day total</b></td><td colspan="2">${cum(b.cum_7d_mm)}</td></tr>
+      <tr><td colspan="2"><b>15-day total</b></td><td colspan="2">${cum(b.cum_15d_mm)}</td></tr>
+      <tr><td colspan="2"><b>30-day</b></td><td colspan="2">Not served — 16-day deterministic feed only</td></tr>`;
+  } catch (err) {
+    console.error('Live outlook failed:', err);
+    metaEl.textContent = 'Live outlook unavailable.';
+    tbody.innerHTML = `<tr><td colspan="4" style="color:#a33;">Live outlook data is currently unavailable (${err.message}). No fallback forecast is synthesised — please try again.</td></tr>`;
+    if (freshEl) {
+      freshEl.textContent = 'Live forecast freshness unknown — provider unreachable.';
+      freshEl.style.background = '#fbe3dc';
+      freshEl.style.color = '#a33';
+      freshEl.style.border = '1px solid #e0a08e';
+    }
+  }
+}
+
 async function loadClimateContext() {
   const tbody = document.querySelector('#climate-context-tbody');
   if (!tbody) return;
@@ -643,6 +711,13 @@ document.addEventListener('DOMContentLoaded', () => {
   } else if (activeRoute === 'timeline') {
     loadTimelineForecast('Sangrur');
     loadClimateContext();
+    const liveSelect = document.querySelector('#live-block-select');
+    if (liveSelect) {
+      loadLiveOutlook(liveSelect.value || 'Sangrur');
+      liveSelect.addEventListener('change', (e) => loadLiveOutlook(e.target.value));
+    } else {
+      loadLiveOutlook('Sangrur');
+    }
   }
 
   window.addEventListener('languageChanged', () => {

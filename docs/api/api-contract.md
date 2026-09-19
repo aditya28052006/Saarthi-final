@@ -21,6 +21,34 @@ Source of truth: `data/processed/application/latest_forecast.json` (canonical), 
 | `POST /api/climate-context/reload` | re-reads the climate package (no restart; fail-soft → `{available:false}`, HTTP 200) |
 | `GET /api/mjo/latest` | MJO node only |
 
+## Live operational weather endpoints (Phase 1+2: Open-Meteo + ECMWF IFS)
+
+Source: live third-party NWP via Open-Meteo (`models=ecmwf_ifs`), aggregated to the
+6 legacy Sangrur blocks. This tree is ADDITIVE — the validated CHIRPS-GEFS endpoints
+above are untouched. Live-verified 2026-09-19 (HTTP 200, keyless, 16 daily dates,
+384 hourly steps, `Asia/Kolkata`).
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/weather/forecast` | all 6 blocks: `{provider, model, issue_date, retrieved_at, stale, stale_warning?, horizon_days, horizon_note, blocks[], recent_observed}` |
+| `GET /api/weather/forecast/{blockId}` | one block (`blockId` = name or Bhuvan id, case-insensitive; unknown → 404 `unknown_block`): `{provider, model, issue_date, retrieved_at, stale, horizon_days, block, recent_observed}` |
+| `GET /api/weather/freshness` | cache freshness WITHOUT upstream fetch: `{available, provider, model, model_run_time:null, model_run_note, retrieved_at, age_minutes, stale, cache_ttl_minutes, issue_date}` (before any fetch: `{available:false, reason}`) |
+
+### Per-block shape (`block`)
+
+- `block_name`, `spatial_method` (e.g. `multipoint_mean_n7_3x3_bbox_filtered …`; centroid fallback labelled, never presented as the solution),
+- `days[]` each `{date, horizon_day 1..16, rainfall_mm (mm; `null` = no data at any sample point, NEVER zero-filled), rain_probability_pct, note?}`,
+- `cum_3d_mm / cum_7d_mm / cum_15d_mm` each `{available:true, rainfall_mm}` or `{available:false, reason}` (cumulatives require ALL n days present with non-null rainfall),
+- `cum_30d` ALWAYS `{available:false, reason}` (30-day deterministic rainfall not available from the 16-day feed; Phase 3 climate outlook, not synthesised here),
+- `recent_observed` (same object at both levels): `{available:false, reason}` unless `saarthi.chirps.path` points at the local CHIRPS block CSV, then `{available, window_days, period_start/end, source, observed_last_<n>d_mm_by_block}` — strictly OBSERVED history, never mixed into forecast fields.
+
+### Units / metadata / errors
+
+- Rainfall mm, probability %, temperature °C (provider-native; passed through, never converted).
+- `provider` = `Open-Meteo` (delivery layer), `model` = `ECMWF IFS (ecmwf_ifs)` (NWP model — never the delivery layer). `model_run_time` is `null` by design: Open-Meteo exposes no per-run initialisation timestamp, so `retrieved_at` is the freshness anchor.
+- Horizon served honestly: days 1–7 operational, 8–15 extended/lower-confidence, 16–30 NOT served.
+- Cache: one provider call serves all blocks; TTL `saarthi.weather.cache-ttl-minutes` (default 60). Provider failure WITH cache → cached payload + `stale:true` + `stale_warning` (HTTP 200). Provider failure WITHOUT cache → 502 `provider_error` (`{error, message, retry}`), never synthetic data. Unknown block → 404 `unknown_block` with `valid_blocks`.
+
 Synthetic endpoints (`/outlook`, `/predict`, `/map-data`) remain REMOVED. No synthetic forecast fallback exists: API failure surfaces an explicit error in the UI.
 
 ## Field reference (per block)
