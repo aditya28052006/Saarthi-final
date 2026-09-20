@@ -648,6 +648,75 @@ async function loadLiveOutlook(block = 'Sangrur') {
   }
 }
 
+// -------------------------------------------------------------
+// 3c. WEEKS 3-4 EXTENDED CLIMATE OUTLOOK (Phase 3B: /api/outlook/*)
+// -------------------------------------------------------------
+// Display-only, climatology-based outlook: W3 = D+17..D+23, W4 = D+24..D+30.
+// Probabilities are the tercile prior (1/3 each); amounts are climatological
+// normals for reference, never deterministic forecasts. MJO/IOD/ENSO are
+// context only. All honesty states (loading/unavailable/stale/error) explicit.
+
+async function loadWeeks34Outlook(block = 'Sangrur') {
+  const tbody = document.querySelector('#w34-matrix-tbody');
+  const metaEl = document.querySelector('#w34-meta');
+  const freshEl = document.querySelector('#w34-freshness');
+  const narrEl = document.querySelector('#w34-narrative');
+  if (!tbody || !metaEl) return;
+
+  tbody.innerHTML = `<tr><td colspan="5">Loading extended outlook for ${block}…</td></tr>`;
+  metaEl.textContent = 'Extended outlook loading…';
+  if (narrEl) narrEl.textContent = '';
+
+  try {
+    const res = await fetch(`/api/outlook/17-30/${encodeURIComponent(block)}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    const fmtProb = (p) => `${Math.round(p * 100)}%`;
+    const row = (label, w) => {
+      if (!w || w.status !== 'available') {
+        return `<tr><td><b>${label}</b></td><td colspan="4" style="color:#a33;">Unavailable — ${w ? (w.reason || 'no data') : 'no data'} (never zero-filled)</td></tr>`;
+      }
+      return `<tr><td><b>${label}</b></td><td>${w.period_start}…${w.period_end}</td>` +
+        `<td>${fmtProb(w.below_probability)} / ${fmtProb(w.near_probability)} / ${fmtProb(w.above_probability)}</td>` +
+        `<td>${w.climatological_normal_mm} mm <span style="opacity:.65">(normal, not forecast)</span></td>` +
+        `<td>${data.confidence || '—'}</td></tr>`;
+    };
+    tbody.innerHTML = row('W3 (Days 17–23)', data.w3) + row('W4 (Days 24–30)', data.w4);
+
+    const stale = data.climate_context && data.climate_context.any_stale;
+    metaEl.textContent =
+      `${data.block_name || block}: issued ${data.issue_date} · confidence ${data.confidence || '—'}` +
+      (stale ? ' · climate context STALE — confidence capped' : ' · climate context fresh') +
+      ` (${data.confidence_reason || ''})`;
+    if (freshEl) {
+      freshEl.textContent = stale
+        ? 'Extended outlook based on STALE climate context — climatology baseline, reduced confidence'
+        : `Extended outlook fresh (issued ${data.issue_date}) — climatology baseline`;
+      freshEl.style.background = stale ? '#fbe3dc' : '#e4efe0';
+      freshEl.style.color = stale ? '#a33' : '#3c6e47';
+      freshEl.style.border = stale ? '1px solid #e0a08e' : '1px solid #b9d2bd';
+    }
+    if (narrEl) narrEl.textContent = data.narrative || '';
+    const rec = data.recent_observed || {};
+    if (rec.observed_14d_mm == null && rec.observed_30d_mm == null && narrEl) {
+      narrEl.textContent += ' Recent observed rainfall unavailable (not zero).';
+    }
+  } catch (err) {
+    console.error('Weeks 3-4 outlook failed:', err);
+    metaEl.textContent = 'Extended outlook unavailable.';
+    tbody.innerHTML = `<tr><td colspan="5" style="color:#a33;">Extended outlook data is currently unavailable (${err.message}). No fallback outlook is synthesised — please try again.</td></tr>`;
+    if (freshEl) {
+      freshEl.textContent = 'Extended outlook freshness unknown.';
+      freshEl.style.background = '#fbe3dc';
+      freshEl.style.color = '#a33';
+      freshEl.style.border = '1px solid #e0a08e';
+    }
+  }
+}
+
 async function loadClimateContext() {
   const tbody = document.querySelector('#climate-context-tbody');
   if (!tbody) return;
@@ -714,9 +783,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const liveSelect = document.querySelector('#live-block-select');
     if (liveSelect) {
       loadLiveOutlook(liveSelect.value || 'Sangrur');
-      liveSelect.addEventListener('change', (e) => loadLiveOutlook(e.target.value));
+      loadWeeks34Outlook(liveSelect.value || 'Sangrur');
+      liveSelect.addEventListener('change', (e) => {
+        loadLiveOutlook(e.target.value);
+        loadWeeks34Outlook(e.target.value);
+      });
     } else {
       loadLiveOutlook('Sangrur');
+      loadWeeks34Outlook('Sangrur');
     }
   }
 

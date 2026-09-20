@@ -51,6 +51,72 @@ above are untouched. Live-verified 2026-09-19 (HTTP 200, keyless, 16 daily dates
 
 Synthetic endpoints (`/outlook`, `/predict`, `/map-data`) remain REMOVED. No synthetic forecast fallback exists: API failure surfaces an explicit error in the UI.
 
+## Weeks 3–4 extended climate outlook endpoints (Phase 3B: display-only, climatology-based)
+
+Source: frozen Phase 3A deployment climatology
+(`data/processed/climatology/block_doy_normals_full.csv`, packaged copy
+`classpath:/climatology/block_doy_normals_full.csv`; never rebuilt here).
+This tree is ADDITIVE — the validated 7-day and live weather trees are untouched.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/outlook/17-30` | all 6 blocks: `{issue_date, generated_at, method, w3_definition, w4_definition, blocks[], climate_context, freshness}` |
+| `GET /api/outlook/17-30/{blockId}` | one block (`blockId` = name or Bhuvan id, case-insensitive; unknown → 404 `unknown_block`): `{block_name, horizon_label, w3, w4, recent_observed, recent_anomaly, confidence, confidence_reason, climate_context, narrative, status, issue_date, generated_at}` |
+| `GET /api/outlook/freshness` | input freshness WITHOUT upstream fetch: `{available, issue_date, generated_at, climatology_vintage, recent_14d, recent_30d, climate_context, confidence_cap_note}` (missing climatology → `{available:false, reason}`) |
+
+### W3/W4 semantics
+
+- D = issue date (today IST, explicit `issue_date` in every response).
+- W3 = sum over D+17..D+23; W4 = sum over D+24..D+30, per block.
+- DOY wheel follows Phase 3A (`Feb-29 → 60`, else non-leap reference +1 from Mar-01).
+
+### Probability semantics
+
+- `below_probability / near_probability / above_probability` are the
+  climatological tercile prior (1/3 each, sum ≈ 1) with
+  `probability_method = "climatological_tercile_prior …"`.
+- The frozen artifact stores tercile thresholds, not a distribution — so the
+  baseline honestly reports the prior rather than inventing a calibrated
+  forecast. MJO/IOD/ENSO/recent rainfall NEVER modify these probabilities.
+
+### Climatological reference semantics
+
+- `climatological_normal_mm` = expected 7-day window sum from frozen daily
+  means (sum over the window's 7 calendar DOYs), labelled
+  `"CLIMATOLOGICAL NORMAL / REFERENCE — not forecast rainfall"`.
+- `tercile_t33_mm / tercile_t66_mm` = frozen W3/W4 tercile thresholds for the
+  issue DOY. `wet_day_probability` = frozen wet-day probability.
+- NEVER deterministic daily mm for days 17–30; missing rows →
+  `{status:"unavailable", reason}` (never zero-filled).
+
+### Confidence semantics
+
+- `confidence` ∈ {MODERATE, LOW} in Phase 3B (HIGH is never issued for a
+  climatology-only baseline). Rules: base MODERATE in JJAS; LOW outside JJAS
+  ("climatology-dominated / low information"); stale/unavailable climate
+  context caps at LOW; unavailable recent rainfall caps at LOW.
+- Freshness thresholds (conservative, explicit): MJO stale if flagged stale
+  or `observation_end` older than 14 days vs D; ENSO/IOD stale if vintage
+  month older than 2 months vs D (IOD explicit `stale` flag also honoured).
+  Unavailable inputs count as stale for capping.
+
+### Stale/unavailable behavior
+
+- Missing climatology → 503 `outlook_unavailable` (explicit, never synthetic).
+- Recent rainfall via `RecentRainfallService` (trailing 14/30 d); unconfigured
+  or gappy → `{available:false}` with nulls (never zero).
+- `recent_anomaly` is `{available:false, reason}` (no validated trailing-window
+  reference in the frozen artifact; totals shown as context only).
+- Unknown block → 404 `unknown_block` with `valid_blocks` (same semantics as
+  `/api/weather/*`).
+
+### Climate-context labeling
+
+- `mjo.label` = "Context only — not used in W3/W4 probability calculation".
+- `iod.label` = "Context only — not used in W3/W4 probability calculation".
+- `enso.label` = "Climate regime context — not used directly to calculate
+  W3/W4 probabilities". Each carries value/status, vintage, and stale flag.
+
 ## Field reference (per block)
 
 - `block_id` (string, stable Bhuvan scheme), `block_name`, `forecast_7d_total_rainfall_mm` (mm),

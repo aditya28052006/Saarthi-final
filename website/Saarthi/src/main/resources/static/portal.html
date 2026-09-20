@@ -312,6 +312,31 @@
           <p style="font-size: 12px; opacity: 0.75; margin-top: 8px;">Days 1–7 operational · 8–15 extended/lower-confidence · 16–30 not served by the 16-day deterministic feed. Missing values are shown as “No data”, never filled with zero.</p>
         </div>
 
+        <!-- Weeks 3-4 Extended Climate Outlook (Phase 3B: display-only, climatology-based).
+              NOT a deterministic forecast: W3 = D+17..D+23, W4 = D+24..D+30 per block.
+              MJO/IOD/ENSO shown as context only, never wired into probabilities. -->
+        <h3 style="font-size: 16px; margin: 24px 0 12px; letter-spacing: 0.01em; word-spacing: 0.05em;">Extended Climate Outlook — Weeks 3–4 (climatology-based)</h3>
+        <div class="matrix-table-wrap">
+          <p id="w34-meta" style="font-size: 12.5px; margin: 0 0 4px;">Extended outlook loading…</p>
+          <p id="w34-freshness" data-freshness-banner="true" style="margin:0 0 12px;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:8px;background:#eef1ea;color:#657566;">Extended outlook freshness: loading…</p>
+          <table class="matrix-table">
+            <thead>
+              <tr>
+                <th>Window</th>
+                <th>Period</th>
+                <th>Below / Near / Above</th>
+                <th>Climatological normal (reference)</th>
+                <th>Confidence</th>
+              </tr>
+            </thead>
+            <tbody id="w34-matrix-tbody">
+              <tr><td colspan="5">Loading extended outlook…</td></tr>
+            </tbody>
+          </table>
+          <p id="w34-narrative" style="font-size: 12.5px; margin: 8px 0 0;"></p>
+          <p style="font-size: 12px; opacity: 0.75; margin-top: 8px;">Extended climate outlook: W3/W4 probabilities are the climatological tercile prior (1/3 each), not a calibrated forecast. Rainfall amounts are climatological normals for reference only — not deterministic predictions. MJO / IOD / ENSO are context only.</p>
+        </div>
+
         <!-- Large-Scale Climate Context (MJO + ENSO + IOD note; explanatory only, not a rainfall driver) -->
         <h3 style="font-size: 16px; margin: 24px 0 12px; letter-spacing: 0.01em; word-spacing: 0.05em;">Large-Scale Climate Context</h3>
         <div class="matrix-table-wrap">

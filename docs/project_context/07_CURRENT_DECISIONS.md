@@ -254,3 +254,47 @@
 - CHIRPS-GEFS/GEFS work (decisions 20–22) retained as historical validation/background; `/api/forecast/*` legacy endpoints, NB01–NB06, frozen parquets, thresholds, and geography unchanged.
 - Days 1–7 operational, 8–15 extended/lower-confidence, 16–30 NOT served (never synthesised); missing rainfall stays null, never zero-filled.
 - SAARTHI makes no outperformance claim vs ECMWF IFS. Phase 3 adds ENSO/IOD/MJO climate intelligence for days 16–30 and agricultural risk, strictly separate from the deterministic feed.
+
+### 24. Phase 3A Climatology + MJO Gate — NO-GO for Outlook Mathematics (2026-09-19)
+
+**Decision:** Ship block climatology and observed trailing rainfall as DISPLAY ONLY.
+MJO stays explanatory-only; no MJO/recent probability modifiers, no new ML, no
+OutlookService yet. Full evidence: `reports/phase3/PHASE3A_CLIMATOLOGY_MJO_REPORT.md`.
+
+**Reason:** Built train-frozen block×DOY climatology (2010–2019 fit; deployment `full`
+artifact labelled as such) + W3/W4 tercile targets + MJO phase composites.
+In-sample gate GO (JJAS active phases 2 +19%, 6 −21%, 7 −58%, 6/6 block agreement,
+stable halves, physically coherent). Out-of-sample backtest (weekly JJAS 2020–2025,
+n=630/arm/window): CLIM+RECENT Brier skill −1.1%/−1.5%, CLIM+RECENT+MJO −3.4%/−2.5%
+(W3/W4); JJAS-only-fit sensitivity also negative. Directional signal exists but
+probabilities are miscalibrated — net negative skill, so the math does not ship.
+
+**Consequence:**
+- Phase 3B serves frozen deployment normals + observed trailing totals/anomalies +
+  narrative, confidence capped by input vintage. IOD/ENSO unchanged (context-only).
+- MJO math revisit only via calibrated probabilities on more data, never by tuning.
+- Updater decision (manual SOP vs fetch) is the precondition for live weeks 3–4.
+
+### 25. Phase 3B Display-Only Weeks 3–4 Outlook (2026-09-20)
+
+**Decision:** Ship a climatology-only W3 (D+17..23) / W4 (D+24..D+30) display
+baseline via `OutlookService` + `OutlookController`
+(`GET /api/outlook/17-30`, `/{blockId}`, `/freshness`) + timeline Weeks 3–4
+panel. Probabilities are the honestly-labelled tercile prior (1/3 each);
+W3/W4 amounts are climatological normals for reference only; MJO/IOD/ENSO are
+context-only by construction (cannot alter probabilities); no new ML; no
+external updater — freshness-aware capping instead.
+
+**Reason:** Phase 3A proved MJO/recent modifiers have negative out-of-sample
+Brier skill, so the only shippable baseline is the frozen deployment
+climatology plus observed trailing rainfall as separate context. Confidence is
+MODERATE at best (HIGH never issued); stale climate inputs or outside-JJAS
+cap at LOW with explicit reasons.
+
+**Consequence:**
+- `website/Saarthi/src/main/resources/climatology/block_doy_normals_full.csv`
+  is the packaged deployment copy (read-only; source of truth remains
+  `data/processed/climatology/`).
+- Frontend says "Extended climate outlook", never "30-day weather forecast";
+  existing 7–16 day Live Operational Outlook untouched.
+- Full endpoint semantics: `docs/api/api-contract.md` (Weeks 3–4 section).

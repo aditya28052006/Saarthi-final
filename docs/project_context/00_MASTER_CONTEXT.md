@@ -287,6 +287,9 @@ All not yet built in Notebook 02 — Notebook 02 only sets up the forecast-vs-ob
 > it consumes the operational forecast and adds hyperlocal agricultural intelligence.
 > The CHIRPS-GEFS pipeline above remains the historical validation/background
 > (decisions 20–23, `docs/project_context/11_LIVE_WEATHER_ARCHITECTURE.md`).
+> Phase 3A (decision 24, `12_OUTLOOK_ARCHITECTURE.md`): block climatology built and
+> MJO gate tested — MJO stays explanatory-only (backtest Brier skill negative), so
+> weeks 3–4 ship climatology + observed context as display, never deterministic mm.
 
 ---
 
