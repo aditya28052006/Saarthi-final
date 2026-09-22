@@ -51,6 +51,39 @@ above are untouched. Live-verified 2026-09-19 (HTTP 200, keyless, 16 daily dates
 
 Synthetic endpoints (`/outlook`, `/predict`, `/map-data`) remain REMOVED. No synthetic forecast fallback exists: API failure surfaces an explicit error in the UI.
 
+## Agricultural risk endpoints (Phase 4.3: composite_v1 priority composite)
+
+Source: derived server-side from the already-retrieved live IFS forecast
+(`LiveWeatherService` object — never a second Open-Meteo request). Additive
+tree — weather, outlook, and shadow paths are untouched. Deterministic
+priority, NOT a score (composite_v1): FIELD_HIGH → HIGH; provisional
+dry-spell watch → MODERATE (never HIGH); stale → MODERATE; else LOW;
+incomplete D+1..D+3 → UNAVAILABLE (never LOW; NO DATA != NO RISK).
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/risks?window=3d` | all 6 blocks: legacy keys + `{composite_method_version:"composite_v1", method_note, blocks[]}` (each entry extended as below) |
+| `GET /api/risks/{blockId}?window=3d` | one block (name or Bhuvan id, case-insensitive; unknown → 404 `unknown_block`): legacy `{block, issue_date, risk:"FIELD_WORK_DISRUPTION", category, confidence, window, window_dates[3], method_version:"field_work_v1", validation_note, evidence:{wet_days, max_precipitation_mm, daily_precipitation_mm}, reasons[], advisory?, unavailable_reason?, provider, model, retrieved_at, stale, stale_warning?}` PLUS `{overall_risk:HIGH|MODERATE|LOW|UNAVAILABLE, primary_concern:FIELD_WORK_DISRUPTION|DRY_SPELL_WATCH|NONE, composite_method_version:"composite_v1", risks:[{name:FIELD_WORK_DISRUPTION,state,reasons,validation:GEFS_VALIDATED_IFS_PENDING},{name:DRY_SPELL_WATCH,state:ACTIVE|QUIET|UNKNOWN,reasons,validation:PROVISIONAL_IFS_PENDING,pending_ifs_validation:true,f_dry_d1_d7?,dry_run_through_dminus3?},{name:HEAVY_RAIN_EVIDENCE,state:PRESENT|ABSENT|UNKNOWN,reasons,validation:DISPLAY_ONLY,evidence_only:true,threshold_mm?}], context:{recent_rainfall:{available,through?,d7_mm?,d14_mm?,d30_mm?,source?|reason},climatology:{available,normal_d1_d3_mm?,vintage?|reason},soil:{available,line?|reason}}, advisories[]}` |
+
+### Category / confidence semantics
+
+- `category`: `HIGH` (≥2 wet days) | `LOW` (0–1 wet days) | `UNAVAILABLE`
+  (incomplete D+1..D+3 — missing days never zero-filled, never LOW).
+- `confidence`: `MODERATE` when fresh, `LOW` when the underlying forecast is
+  stale. NEVER "validated": the rule was validated historically on GEFS
+  (precision 0.721, recall 0.809, F1 0.763); live IFS transfer is not yet
+  confirmed (`validation_note` carried in every response).
+- `window`: only `3d` is served (missing defaults to `3d`); anything else →
+  400 `invalid_window`. Provider failure without cache → 503
+  `risk_unavailable`, never synthetic risk. Freshness fields (`provider,
+  model, retrieved_at, stale`) are reused from the weather forecast — no
+  separate freshness system.
+- Frontend (timeline page): "Agricultural Risk (D+1–D+3)" card per selected
+  block showing Overall HIGH/MODERATE/LOW/UNAVAILABLE, primary concern + why,
+  other signals (dry-spell watch state, heavy evidence if present, recent
+  rainfall if available, soil context), confidence, freshness, and generic
+  advisories (no crops, no agronomic prescriptions).
+
 ## Weeks 3–4 extended climate outlook endpoints (Phase 3B: display-only, climatology-based)
 
 Source: frozen Phase 3A deployment climatology

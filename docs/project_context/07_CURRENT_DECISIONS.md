@@ -298,3 +298,152 @@ cap at LOW with explicit reasons.
 - Frontend says "Extended climate outlook", never "30-day weather forecast";
   existing 7–16 day Live Operational Outlook untouched.
 - Full endpoint semantics: `docs/api/api-contract.md` (Weeks 3–4 section).
+
+### 26. Phase 3C Checkpoint 0 Pre-screen — NO-GO, Stop ML (2026-09-20)
+
+**Decision:** NO-GO. Stop Phase 3C ML development. Keep Phase 3B
+display-only W3/W4 as production. No Checkpoint 1, no RF/LightGBM, no
+probabilistic endpoint, no frontend change, no updater.
+
+**Reason:** Fixed pre-screen (`src/w3w4/checkpoint0.py`, train-frozen
+thresholds, features ending D-3, weekly JJAS 2020–2025, issue-clustered
+bootstrap CIs): SEASONAL Brier skill vs FLAT −0.54% (W3) / +0.01% (W4),
+PERSIST_LR −1.89% (W3) / −1.26% (W4); all JJAS CIs include zero or are
+negative; logloss agrees; no block subgroup contradicts. Evidence:
+`reports/phase3/PHASE3C_CHECKPOINT0_REPORT.md` +
+`data/processed/w3w4/checkpoint0_metrics.json`.
+
+**Consequence:**
+- `src/w3w4/` + `data/processed/w3w4/` + Phase 3C report are frozen
+  negative-result artifacts; nothing from them is served.
+- Phase 3B endpoint/frontend, weather engine, Phase 1B artifacts, and all
+  frozen parquets untouched.
+- Revisit only via a new pre-registered calibrated design, never by tuning.
+
+### 27. Phase 4.0 Dry-Spell Architecture Gate — NO-GO, Stop Expansion (2026-09-21)
+
+**Decision:** NO-GO for expanding the dry-spell risk architecture. No ML,
+no threshold tuning, no Phase 4.1, no backend/frontend work.
+
+**Reason:** Fixed transparent rule (zero fitted parameters, antecedent
+ending D-3, weekly JJAS issues): perfect-forecast leg PASSES (L7 recall
+0.668/precision 0.876), but HISTORICAL GEFS PSEUDO-FORECAST leg misses the
+pre-registered recall gate (L7 recall 0.579 vs 0.60 required; precision
+0.759 passes), replicated in an independent 2016–2019 fold (recall 0.568).
+Shortfall is forecast-driven, not rule-driven. Evidence:
+`reports/phase4/PHASE4_0_DRY_SPELL_REPORT.md` + `src/risk/` +
+`data/processed/risk/`.
+
+**Consequence:**
+- `src/risk/` + `data/processed/risk/` + Phase 4.0 report are frozen
+  artifacts; nothing from them is served. Soil re-aggregation confirmed
+  existing values to rounding (provenance only, no substitution).
+- Only sanctioned revisit: pre-registered confirmatory evaluation with the
+  unchanged frozen rule (e.g. live-IFS shadow comparison), never tuning on
+  these eval folds, never ML on this signal.
+
+### 28. Live IFS Shadow Validation Layer — Additive Data Collection (2026-09-21)
+
+**Decision:** Build a lightweight live-IFS shadow validation layer that
+preserves one immutable record per (forecast issue, block) on every fresh
+Open-Meteo/ECMWF-IFS retrieval and later attaches CHIRPS D+1..D+7 truth.
+Validation/data-collection only — not a production risk API, no frontend,
+no ML, no tuning, Phase 4.0 rule frozen and reused (not copied).
+
+**Reason:** Phase 4.0 proved the rule viable under perfect information but
+limited by historical GEFS forecast skill (recall 0.579 vs 0.60 gate). The
+only sanctioned next step per Decision 27 is confirmatory evaluation on new
+data; live IFS evidence must be collected first, before any production claim.
+
+**Consequence:**
+- Java: `com.saarthi.shadow` (`DrySpellRule` frozen port, `ShadowLedger`
+  JSONL first-write-wins, `ShadowCaptureService` fail-soft hook in
+  `LiveWeatherService`); additive `RecentRainfallService.dailyWindow()`;
+  ledger default `data/processed/shadow/ifs_shadow.jsonl` (override via
+  `-Dsaarthi.shadow.path=`). No second weather client, no serving-path
+  behaviour change (50/50 backend tests green).
+- Python: `src/shadow/` (`capture` incl. offline envelope fallback, `truth`
+  updater, `metrics` with `source: live_ifs_shadow` + frozen gate reported
+  only, `test_shadow.py` 10 tests green alongside 9 Phase 4.0 tests).
+- Architecture: `docs/project_context/13_SHADOW_VALIDATION.md`. Verdict
+  stays `INSUFFICIENT_EVIDENCE` until ≥30 issues resolve; historical GEFS
+  and live IFS metrics are never mixed.
+
+### 29. Phase 4.1 Excess Rainfall + Field-Work Validation — Mixed (2026-09-21)
+
+**Decision:** Ship two NEW transparent risk detectors as validated
+diagnostics with split verdicts: FIELD_HIGH (D+1..D+3, ≥2 wet days ≥1mm)
+is a GO candidate for later production integration (NOT yet integrated);
+all three EXCESS components are NO-GO (diagnostic evidence only). No ML,
+no tuning, no Java/API/frontend, no soil drivers. Phase 4.0 + shadow
+system untouched.
+
+**Reason:** Fixed a priori rules (excess-v1 train-fit 2010–2019, field-v1
+proposed), validated on HISTORICAL GEFS PSEUDO-FORECAST vs CHIRPS (weekly
+Wednesday JJAS 2021–2025, n=522, issue-clustered CIs): FIELD_HIGH prec
+0.721/rec 0.809/F1 0.763 beats both baselines uniformly across blocks;
+EXCESS daily/3d/7d recall only 0.242/0.325/0.283 (miss 2/3+ of events).
+Evidence: `reports/phase4/PHASE4_1_EXCESS_FIELD_REPORT.md` +
+`src/risk/{excess_rain,field_work,backtest_41,test_phase41}` +
+`data/processed/risk/{excess_thresholds_v1,backtest_41_*}`.
+
+**Consequence:**
+- FIELD_HIGH may proceed to a future production-integration checkpoint
+  (threshold packaging, Java port, live collection) — integration has NOT
+  happened. `FIELD_HIGH_PRECIP_PROB` is unit-tested + IFS-compatible only,
+  NOT historically verified (no GEFS probs).
+- EXCESS detectors stay diagnostic; never tune on eval, never ML.
+- Context: `docs/project_context/14_PHASE41_RISKS.md`. Next: live-shadow
+  accumulation (dry-spell track) or FIELD_HIGH integration — never excess
+  tuning, composites, or soil drivers (4.2).
+
+### 30. Phase 4.2 FIELD_HIGH Production Integration — Shipped (2026-09-21)
+
+**Decision:** Integrate ONLY the validated FIELD_HIGH rule into the live
+Open-Meteo/ECMWF-IFS pipeline as `GET /api/risks[/{blockId}]?window=3d` +
+timeline "Agricultural Risk" card. Frozen binary rule (`field_work_v1` =
+Python `field-v1` HIGH condition: ≥2 wet days ≥1mm in D+1..D+3; MODERATE
+collapses to LOW, 1-wet-day evidence kept in reason codes). No threshold
+change, no ML, no excess-rain, no dry-spell/shadow changes, no soil, no
+crop claims.
+
+**Reason:** Phase 4.1 validated FIELD_HIGH on historical GEFS (prec 0.721 /
+rec 0.809 / F1 0.763, uniform blocks); excess detectors are NO-GO and stay
+diagnostic-only. Integration reuses the served forecast object (no second
+request), is fail-soft (risk never breaks weather), and labels confidence
+MODERATE/LOW with an explicit GEFS-not-IFS disclaimer until live transfer
+is confirmed.
+
+**Consequence:**
+- Backend: `com.saarthi.risks` (`FieldWorkRule`, `FieldWorkService`,
+  `RiskController`); contract in `docs/api/api-contract.md` (risks section).
+  Verified live 2026-09-21 (all 6 blocks, 404/400 states, shadow captured
+  6 lines independently, evidence matches forecast).
+- Frontend: additive risk card (HIGH/LOW/UNAVAILABLE + evidence +
+  freshness); weather UI unchanged. Tests: 65/65 backend green (15 new),
+  `node --check` clean, 38/38 Python green.
+- Frozen: rule, excess NO-GO, dry-spell + shadow system. Next: shadow
+  accumulation (≥30 issues) or a future integration checkpoint — never
+  composites, waterlogging, planting/irrigation, or ML.
+
+### 31. Phase 4.3 Composite Agricultural Risk (composite_v1) � Shipped (2026-09-21)
+
+**Decision:** Ship a deterministic rule-based priority composite (NOT a score): FIELD_HIGH -> HIGH; provisional dry-spell watch (same frozen DrySpellRule, labelled pending IFS validation) -> MODERATE, never HIGH; stale -> MODERATE; else LOW; incomplete D+1..D+3 -> UNAVAILABLE. Heavy-rain p95 flag display-only; CHIRPS/climatology/soil context-only (never severity/confidence). Extended /api/risks additively (legacy keys preserved) + timeline card. Separate field_shadow.jsonl ledger (field-shadow/v1) with pre-registered gate recall >=0.60/precision >=0.40/>=30 issues. No weights, no tuning, no ML, no excess production, no crop advice.
+
+**Reason:** Approved Phase 4.3 plan: scores cannot be weighted honestly (HIGH/DRY share one axis; antecedent/soil add no skill; excess NO-GO). Priority logic is traceable, truth-table tested, and each claim keeps its own validation status.
+
+**Consequence:**
+- Backend: com.saarthi.risks (CompositeRiskService, FieldShadowService, HeavyRainThresholds/SoilContext/ClimatologyContext readers, RiskController delegation); resources risk/excess_thresholds_v1.json (byte-identical train-frozen copy) + risk/soil_context.json. Contract extended in docs/api/api-contract.md.
+- Verified live 2026-09-21 (all 6 blocks LOW on a dry day, both shadow ledgers 6 lines each on one fetch, 404/400 OK, timeline card live). Tests: 92/92 backend (incl. Spring context-load + 13 truth-table), 45/45 Python, node clean.
+- Frozen: all rules/thresholds/gates, dry-spell ledger/schema untouched, excess diagnostic-only.
+
+### 32. Live Evidence Operations — OPTION 1 truth (CHIRPS v3 sat) — Operational (2026-09-22)
+
+**Decision:** Validate live Open-Meteo/ECMWF-IFS against independent **CHIRPS v3.0 daily `sat`** truth (UCSB CHC, satellite-IR + stations, public domain). Maintain a separate versioned current-truth CSV (`Sangrur_Block_Daily_Rainfall_2026_current.csv`, per-row `source` final/prelim-sat) via `src/shadow/update_chirps_current.py` (windowed /vsicurl reads, idempotent, missing-never-zero); frozen 2010–2025 file untouched. `rnl` (ERA5-split) daily excluded by design; Open-Meteo Previous/Single/Historical archives are backtest-only, never truth. Status via `python -m src.shadow.status`; gate stays >=30 observed issue dates per ledger (currently 0/0 — INSUFFICIENT EVIDENCE).
+
+**Reason:** CHIRPS v3 prelim/final is the official current observation product in the same v3 family as the frozen truth, with operational latency (final 2026-08-31, prelim 2026-09-15 observed) and no credentials; `sat` keeps within-pentad daily structure ECMWF-free.
+
+**Consequence:**
+- Live-verified 2026-09-22 (HTTP 200, 6 blocks x 16 days, issue captured in both ledgers; duplicate-safe). Truth attach run: all 24 records correctly `pending` (windows incomplete; 2026-09-16..18 unpublished, never zero-filled).
+- Tests: 47/47 Python (6 new), 92/92 backend, diff clean. Full reference: `docs/project_context/16_LIVE_EVIDENCE_OPERATIONS.md`, `reports/phase4/PHASE4_LIVE_EVIDENCE_OPERATIONS_REPORT.md`. Next: daily fetch + updater/attach as pentads publish — never tuning, ML, or sub-30 evaluation.
+- Frozen: all rules/thresholds/gates, dry-spell ledger/schema untouched, excess diagnostic-only. Next: shadow accumulation (dry >=30, field >=30) � never scores, soil weights, composites-of-composites, or ML.

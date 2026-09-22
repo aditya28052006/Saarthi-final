@@ -1,6 +1,8 @@
 package com.saarthi.weather;
 
+import com.saarthi.risks.FieldShadowService;
 import com.saarthi.service.RealForecastService;
+import com.saarthi.shadow.ShadowCaptureService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -48,14 +50,37 @@ public class LiveWeatherService {
 
     private volatile CachedForecast cache;
 
+    /**
+     * Optional live-IFS shadow hook (validation/data-collection only).
+     * Setter-injected so the weather path works with or without it; the hook
+     * itself is fail-soft and can never break forecast serving.
+     */
+    private volatile ShadowCaptureService shadow;
+
+    @Autowired(required = false)
+    public void setShadowCapture(ShadowCaptureService shadow) {
+        this.shadow = shadow;
+    }
+
+    /**
+     * Optional FIELD_HIGH shadow hook (separate field ledger, same fail-soft
+     * contract as the dry-spell hook; the dry-spell path is untouched).
+     */
+    private volatile FieldShadowService fieldShadow;
+
+    @Autowired(required = false)
+    public void setFieldShadow(FieldShadowService fieldShadow) {
+        this.fieldShadow = fieldShadow;
+    }
+
     @Autowired
     public LiveWeatherService(WeatherProvider provider, BlockSampler sampler) {
         this.provider = provider;
         this.sampler = sampler;
     }
 
-    /** Test seam. */
-    LiveWeatherService(WeatherProvider provider, BlockSampler sampler, long cacheTtlMinutes) {
+    /** Test seam (public so additive risk/shadow packages can build fixtures). */
+    public LiveWeatherService(WeatherProvider provider, BlockSampler sampler, long cacheTtlMinutes) {
         this.provider = provider;
         this.sampler = sampler;
         this.cacheTtlMinutes = cacheTtlMinutes;
@@ -70,6 +95,10 @@ public class LiveWeatherService {
         try {
             LiveForecast fresh = fetchFresh();
             cache = new CachedForecast(fresh, Instant.now());
+            ShadowCaptureService s = shadow;
+            if (s != null) s.tryCapture(fresh); // fail-soft: never breaks serving
+            FieldShadowService f = fieldShadow;
+            if (f != null) f.tryCapture(fresh); // fail-soft: separate field ledger
             return fresh;
         } catch (WeatherProviderException e) {
             if (c != null) {

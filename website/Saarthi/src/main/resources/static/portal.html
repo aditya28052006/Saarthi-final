@@ -312,6 +312,21 @@
           <p style="font-size: 12px; opacity: 0.75; margin-top: 8px;">Days 1–7 operational · 8–15 extended/lower-confidence · 16–30 not served by the 16-day deterministic feed. Missing values are shown as “No data”, never filled with zero.</p>
         </div>
 
+        <!-- Agricultural Risk (Phase 4.3: composite_v1 priority composite, /api/risks/*).
+             Rule-based priority, NOT a score: FIELD_HIGH -> HIGH; provisional
+             dry-spell watch -> MODERATE (never HIGH); stale -> MODERATE.
+             Generic signals only: no crops, no agronomic prescriptions. -->
+        <h3 style="font-size: 16px; margin: 24px 0 12px; letter-spacing: 0.01em; word-spacing: 0.05em;">Agricultural Risk (D+1–D+3)</h3>
+        <div class="matrix-table-wrap">
+          <p id="risk-meta" style="font-size: 12.5px; margin: 0 0 4px;">Field-work risk loading…</p>
+          <p id="risk-card" style="margin:0 0 8px;font-size:13px;font-weight:700;padding:8px 12px;border-radius:8px;background:#eef1ea;color:#657566;">Loading…</p>
+          <p id="risk-primary" style="font-size: 12.5px; margin: 0 0 4px;"></p>
+          <p id="risk-evidence" style="font-size: 12.5px; margin: 0 0 4px;"></p>
+          <p id="risk-others" style="font-size: 12.5px; margin: 0 0 4px;"></p>
+          <p id="risk-advisory" style="font-size: 12.5px; margin: 0 0 4px;"></p>
+          <p style="font-size: 12px; opacity: 0.75; margin-top: 8px;">Rule-based composite (composite_v1, no score): HIGH when ≥2 of the next 3 forecast days are wet (≥1 mm/day). Dry-spell watch is provisional (IFS validation pending) and never drives HIGH. Heavy-rain flag is display-only evidence. Historically validated on GEFS; live IFS transfer not yet confirmed — shown at MODERATE confidence, never as validated.</p>
+        </div>
+
         <!-- Weeks 3-4 Extended Climate Outlook (Phase 3B: display-only, climatology-based).
               NOT a deterministic forecast: W3 = D+17..D+23, W4 = D+24..D+30 per block.
               MJO/IOD/ENSO shown as context only, never wired into probabilities. -->

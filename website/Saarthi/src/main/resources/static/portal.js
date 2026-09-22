@@ -649,6 +649,112 @@ async function loadLiveOutlook(block = 'Sangrur') {
 }
 
 // -------------------------------------------------------------
+// 3b2. AGRICULTURAL RISK — COMPOSITE (Phase 4.3: composite_v1, /api/risks/*)
+// -------------------------------------------------------------
+// Rule-based priority served from the same live IFS forecast (no second
+// request): FIELD_HIGH -> HIGH; provisional dry-spell watch -> MODERATE
+// (never HIGH); stale -> MODERATE; incomplete -> UNAVAILABLE (never LOW).
+// Generic wording only — no crops, no agronomic prescriptions.
+
+async function loadFieldRisk(block = 'Sangrur') {
+  const metaEl = document.querySelector('#risk-meta');
+  const cardEl = document.querySelector('#risk-card');
+  const primEl = document.querySelector('#risk-primary');
+  const evEl = document.querySelector('#risk-evidence');
+  const othEl = document.querySelector('#risk-others');
+  const advEl = document.querySelector('#risk-advisory');
+  if (!metaEl || !cardEl) return;
+
+  metaEl.textContent = `Agricultural risk loading for ${block}…`;
+  cardEl.textContent = 'Loading…';
+  if (primEl) primEl.textContent = '';
+  if (evEl) evEl.textContent = '';
+  if (othEl) othEl.textContent = '';
+  if (advEl) advEl.textContent = '';
+
+  const paint = (bg, fg, border) => {
+    cardEl.style.background = bg;
+    cardEl.style.color = fg;
+    cardEl.style.border = border;
+  };
+  const prettyConcern = (c) => (c || '—').replace(/_/g, ' ');
+  try {
+    const res = await fetch(`/api/risks/${encodeURIComponent(block)}?window=3d`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    // Backward compatible: older responses carry category without overall_risk.
+    const overall = data.overall_risk || data.category || 'UNAVAILABLE';
+    const ev = data.evidence || {};
+    const wetTxt = ev.wet_days == null ? 'unknown' : `${ev.wet_days} of 3 forecast days are wet`;
+    const maxTxt = ev.max_precipitation_mm == null ? 'unknown' : `${ev.max_precipitation_mm} mm`;
+    metaEl.textContent =
+      `${data.block || block}: AGRICULTURAL RISK · D+1–D+3 ` +
+      `(${Array.isArray(data.window_dates) ? data.window_dates.join(' … ') : '—'}) · ` +
+      `confidence ${data.confidence || '—'}` +
+      (data.stale ? ' · STALE forecast — capped confidence' : ' · fresh');
+    if (overall === 'HIGH') {
+      cardEl.textContent = 'Overall: HIGH — field work may be disrupted';
+      paint('#fbe3dc', '#a33', '1px solid #e0a08e');
+    } else if (overall === 'MODERATE') {
+      cardEl.textContent = 'Overall: MODERATE — stay aware, check back';
+      paint('#fdf3e0', '#8a6d1b', '1px solid #e0c98e');
+    } else if (overall === 'LOW') {
+      cardEl.textContent = 'Overall: LOW — no strong risk signal';
+      paint('#e4efe0', '#3c6e47', '1px solid #b9d2bd');
+    } else {
+      cardEl.textContent = 'UNAVAILABLE — incomplete forecast data';
+      paint('#eef1ea', '#657566', '1px solid #c9cfc4');
+    }
+    if (primEl) {
+      primEl.textContent = `Primary concern: ${prettyConcern(data.primary_concern)}. ` +
+        `Why: ${overall === 'HIGH' ? `${wetTxt} (≥1 mm/day).` : (data.reasons || []).join(', ') || '—'}`;
+    }
+    if (evEl) {
+      evEl.textContent = `Evidence: ${wetTxt}; max forecast rainfall ${maxTxt}.`;
+    }
+    if (othEl) {
+      const risks = Array.isArray(data.risks) ? data.risks : [];
+      const byName = {};
+      risks.forEach((r) => { byName[r.name] = r; });
+      const watch = byName.DRY_SPELL_WATCH;
+      const heavy = byName.HEAVY_RAIN_EVIDENCE;
+      const ctx = data.context || {};
+      const parts = [];
+      if (watch) {
+        parts.push(watch.state === 'ACTIVE'
+          ? 'Dry-spell watch: PROVISIONAL watch active (IFS validation pending)'
+          : `Dry-spell watch: ${String(watch.state || 'unknown').toLowerCase()}`);
+      }
+      if (heavy && heavy.state === 'PRESENT') {
+        parts.push('Heavy-rain evidence present (display-only, not a validated risk)');
+      }
+      if (ctx.recent_rainfall && ctx.recent_rainfall.available) {
+        parts.push(`Recent rainfall: 14-day total ${ctx.recent_rainfall.d14_mm} mm ` +
+          `(observed through ${ctx.recent_rainfall.through})`);
+      }
+      if (ctx.soil && ctx.soil.line) parts.push(`Soil: ${ctx.soil.line}`);
+      othEl.textContent = parts.length ? `Other signals: ${parts.join(' · ')}` : '';
+    }
+    if (advEl) {
+      const adv = Array.isArray(data.advisories) ? data.advisories : [data.advisory];
+      advEl.textContent = adv.filter(Boolean).join(' ');
+    }
+  } catch (err) {
+    console.error('Agricultural risk failed:', err);
+    metaEl.textContent = 'Agricultural risk unavailable.';
+    cardEl.textContent = `UNAVAILABLE — ${err.message}`;
+    paint('#eef1ea', '#657566', '1px solid #c9cfc4');
+    if (primEl) primEl.textContent = '';
+    if (evEl) evEl.textContent = '';
+    if (othEl) othEl.textContent = '';
+    if (advEl) advEl.textContent = 'Agricultural risk is unavailable because the required forecast data is incomplete.';
+  }
+}
+
+// -------------------------------------------------------------
 // 3c. WEEKS 3-4 EXTENDED CLIMATE OUTLOOK (Phase 3B: /api/outlook/*)
 // -------------------------------------------------------------
 // Display-only, climatology-based outlook: W3 = D+17..D+23, W4 = D+24..D+30.
@@ -783,13 +889,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const liveSelect = document.querySelector('#live-block-select');
     if (liveSelect) {
       loadLiveOutlook(liveSelect.value || 'Sangrur');
+      loadFieldRisk(liveSelect.value || 'Sangrur');
       loadWeeks34Outlook(liveSelect.value || 'Sangrur');
       liveSelect.addEventListener('change', (e) => {
         loadLiveOutlook(e.target.value);
+        loadFieldRisk(e.target.value);
         loadWeeks34Outlook(e.target.value);
       });
     } else {
       loadLiveOutlook('Sangrur');
+      loadFieldRisk('Sangrur');
       loadWeeks34Outlook('Sangrur');
     }
   }

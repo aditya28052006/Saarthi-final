@@ -22,3 +22,7 @@ Thumbs.db
 
 # Temp
 *.tmp
+
+# Local agent/runtime (never commit evidence-adjacent local state)
+.kilo/
+*.log

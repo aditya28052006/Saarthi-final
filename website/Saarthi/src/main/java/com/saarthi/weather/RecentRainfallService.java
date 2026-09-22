@@ -30,8 +30,35 @@ public class RecentRainfallService {
     private String chirpsPath;
 
     /** Test seam. */
-    void setChirpsPath(String p) {
+    public void setChirpsPath(String p) {
         this.chirpsPath = p;
+    }
+
+    /**
+     * Daily observed rainfall for one block over the inclusive range
+     * {@code [start, end]} (used by the IFS shadow ledger for the D-30..D-3
+     * antecedent window).
+     *
+     * <p>Missing days are {@code null} entries — never zero-filled. Returns
+     * {@code null} when CHIRPS is unconfigured, missing, or unreadable
+     * (fail-soft; the shadow record then marks the antecedent unavailable).
+     */
+    public java.util.List<Double> dailyWindow(String block,
+            LocalDate start, LocalDate end) {
+        Path p = configuredPath();
+        if (p == null || !Files.isRegularFile(p)) return null;
+        try {
+            Map<String, TreeMap<LocalDate, Double>> series = readSeries(p);
+            TreeMap<LocalDate, Double> s = series.get(block);
+            if (s == null) return null;
+            java.util.List<Double> out = new java.util.ArrayList<>();
+            for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+                out.add(s.get(d)); // null when the day is absent: never zero
+            }
+            return out;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**
