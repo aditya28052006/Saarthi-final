@@ -5,6 +5,7 @@ import com.saarthi.service.AgronomyService;
 import com.saarthi.service.DistrictDataService;
 import com.saarthi.service.RealForecastService;
 import com.saarthi.service.RealForecastService.BlockNotFoundException;
+import com.saarthi.weather.WeatherController.WeatherUnavailableException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -233,6 +234,14 @@ public class ApiController {
         err.put("message", ex.getMessage());
         err.put("valid_blocks", RealForecastService.BLOCKS);
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(err);
+    }
+
+    @ExceptionHandler(WeatherUnavailableException.class)
+    public ResponseEntity<Map<String, Object>> handleForecastUnavailable(WeatherUnavailableException ex) {
+        Map<String, Object> err = new LinkedHashMap<>();
+        err.put("error", "forecast_unavailable");
+        err.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(err);
     }
 
     @ExceptionHandler(IllegalStateException.class)

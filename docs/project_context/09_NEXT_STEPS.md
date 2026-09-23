@@ -108,3 +108,10 @@ Only then proceed below.
 ---
 
 *Next session: Python pipeline (01–06) + Saarthi full-stack integration COMPLETE and Playwright-verified. Remaining: SIH demo polish/manual browser pass, forecast refresh procedure (rerun NB05–06 → copy package → rebuild), deployment packaging.*
+
+## Completed: Cross-page live sync + Farmer Advisory rebuild (2026-09-22)
+
+- Single live Open-Meteo ECMWF IFS contract (`/api/weather/forecast/{block}`, D+1..D+16) now also carries ET0, rain/showers split, WMO weather code and 0â€“7 cm soil moisture (hourly joined into Asia/Kolkata daily means, null-honest).
+- `POST /api/farmer-analysis` rebuilt: 9 deterministic sections, PAU/ICAR-cited crop reference (`agronomy/crop_reference.json` v1.0.0), forecast surface soil moisture replaces the synthetic gauge, worded dry-spell watches (no percentages), soil/water-demand rules from live rain vs ET0.
+- Portal timeline + risk map now consume the live contract; stale frozen-package banner logic replaced by the server's `stale` flag; stale CHIRPS-GEFS strings purged from portal.html/portal.js/i18n.js.
+- Verified: 106/106 tests, `node --check` clean, endpoint sweep 200s, missing block 404, wet/dry advisory variation confirmed.

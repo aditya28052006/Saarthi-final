@@ -45,7 +45,7 @@ Open `http://127.0.0.1:5000` in your browser.
 | `GET /api/forecast/summary` | district totals, extremes, category lists |
 | `GET /api/advisories/{blockId}` | prototype advisories + category + probabilities |
 | `GET /api/panchayats[?block=]` | panchayat lists for the farmer form |
-| `POST /api/farmer-analysis` | farmer advisory driven by the real block forecast |
+| `POST /api/farmer-analysis` | farmer advisory (9 sections) built ONLY from the live `/api/weather/forecast/{block}` ECMWF IFS contract + `agronomy/crop_reference.json` (PAU/ICAR-cited) + SoilGrids context. Stage uses `sowing_date` + cited durations; soil moisture is the forecast surface layer (labelled, never a synthetic gauge); dry-spell risk is worded, never a fabricated %. |
 
 ## Updating the forecast package
 

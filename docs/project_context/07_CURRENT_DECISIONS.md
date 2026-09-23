@@ -447,3 +447,13 @@ is confirmed.
 - Live-verified 2026-09-22 (HTTP 200, 6 blocks x 16 days, issue captured in both ledgers; duplicate-safe). Truth attach run: all 24 records correctly `pending` (windows incomplete; 2026-09-16..18 unpublished, never zero-filled).
 - Tests: 47/47 Python (6 new), 92/92 backend, diff clean. Full reference: `docs/project_context/16_LIVE_EVIDENCE_OPERATIONS.md`, `reports/phase4/PHASE4_LIVE_EVIDENCE_OPERATIONS_REPORT.md`. Next: daily fetch + updater/attach as pentads publish — never tuning, ML, or sub-30 evaluation.
 - Frozen: all rules/thresholds/gates, dry-spell ledger/schema untouched, excess diagnostic-only. Next: shadow accumulation (dry >=30, field >=30) � never scores, soil weights, composites-of-composites, or ML.
+
+---
+
+### Farmer Advisory Rebuild on the Live Weather Contract
+
+**Decision:** `POST /api/farmer-analysis` was rebuilt as a deterministic 9-section advisory (`inputs, location, crop, stage, weather, soil, water_demand, risks, advisory, sources`) driven ONLY by the live `/api/weather/forecast/{block}` ECMWF IFS contract, the versioned crop reference `website/Saarthi/src/main/resources/agronomy/crop_reference.json` (PAU PoP Kharif/Rabi + ICAR, cited per crop), and SoilGrids soil context.
+
+**Reason:** The previous advisory mixed the frozen CHIRPS-GEFS 7-day package with a synthetic root-zone moisture gauge (42 âˆ’ P(Low)Ã—26 + soil/irrigation offsets) and a fabricated dry-spell percentage. Outputs were not materially driven by real inputs.
+
+**Consequence:** Soil moisture shown to farmers is the ECMWF IFS 0â€“7 cm forecast (labelled "model forecast â€” not a measurement"); dry-spell risk is worded (watch/no watch) from live rainfall patterns, never a percentage; crop stage appears only when `sowing_date` + cited durations support it, otherwise explicitly "not available"; missing live values surface as "No data". Portal timeline and map now consume the live contract; the old `Outputs` shape (`dry_spell_probability`, `four_pillars`, `root_zone_soil_moisture_pct`, `whatsapp_share`) is removed.

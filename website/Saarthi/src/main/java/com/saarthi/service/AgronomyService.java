@@ -1,329 +1,534 @@
 package com.saarthi.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saarthi.model.FarmerAnalysisRequest;
 import com.saarthi.model.FarmerAnalysisResponse;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.saarthi.risks.SoilContext;
+import com.saarthi.weather.LiveWeatherService;
+import com.saarthi.weather.WeatherController.WeatherUnavailableException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
+import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
+/**
+ * Farmer Advisory engine — deterministic rules over the LIVE weather contract
+ * (GET /api/weather/forecast/{block}: Open-Meteo delivery of ECMWF IFS,
+ * D+1..D+16) plus a versioned, source-cited crop reference
+ * (classpath:/agronomy/crop_reference.json, PAU PoP / ICAR).
+ *
+ * <p>Integrity rules enforced here:
+ * <ul>
+ *   <li>The ONLY weather source is the live block forecast. The frozen
+ *       CHIRPS-GEFS package (/api/forecast/*, latest_forecast.json) is never
+ *       consulted, never mentioned.</li>
+ *   <li>Soil moisture shown to the farmer is the provider's forecast surface
+ *       soil moisture (soil_moisture_0_to_7cm, block mean) — labelled as such.
+ *       The old synthetic gauge (42 - P(Low)*26 + soil/irrigation offsets) is
+ *       REMOVED; no fabricated numbers.</li>
+ *   <li>Dry-spell risk is stated as words from live rainfall patterns (no
+ *       rain-day probability percentages, no fake "dry-spell %").</li>
+ *   <li>Crop stage uses days_since_sowing only where the cited crop reference
+ *       provides duration/stages; otherwise stage is explicitly "not
+ *       available".</li>
+ *   <li>Missing live values are surfaced as "No data" — never zero-filled,
+ *       never replaced by proxies.</li>
+ *   <li>Panchayat is display context only; weather is block-level. Panchayats
+ *       appearing under several blocks are labelled "Panchayat (Block)".</li>
+ * </ul>
+ */
 @Service
 public class AgronomyService {
 
-    @Autowired
-    private RealForecastService realForecastService;
+    private static final Logger log = LoggerFactory.getLogger(AgronomyService.class);
+    static final String CROP_RESOURCE = "agronomy/crop_reference.json";
 
-    private String classifyRisk(double probability) {
-        if (probability >= 0.60) return "High";
-        if (probability >= 0.30) return "Moderate";
-        return "Low";
+    private final RealForecastService blocks; // block registry + canonical names only
+    private final LiveWeatherService liveWeather;
+    private final SoilContext soilContext;
+    private final ObjectMapper mapper = new ObjectMapper();
+
+    /** Panchayat -> blocks containing it (for duplicate-name disambiguation). */
+    private final Map<String, List<String>> panchayatBlocks = new LinkedHashMap<>();
+
+    /** Parsed crop reference (PAU/ICAR-cited). */
+    private JsonNode cropReference;
+
+    public AgronomyService(RealForecastService blocks, LiveWeatherService liveWeather,
+            SoilContext soilContext) {
+        this.blocks = blocks;
+        this.liveWeather = liveWeather;
+        this.soilContext = soilContext;
     }
 
-    public Map<String, Map<String, String>> getAllCropAdvice(double probability) {
-        Map<String, Map<String, String>> map = new LinkedHashMap<>();
-
-        if (probability >= 0.60) {
-            map.put("Paddy (PR-126)", createCropItem(
-                    "High risk of early dry spell (prototype heuristic — not an IMD onset/break forecast). Delay transplanting by 7 days. If seedlings are over 30 days, maintain minimum root-zone puddle and mulch field boundaries.",
-                    "Direct seeded rice (DSR) or short-duration PR-126",
-                    "Delay transplanting; maintain 2 cm puddle depth only using tubewell water.",
-                    "Withhold top-dressing nitrogen until the next active monsoon spell."
-            ));
-            map.put("Paddy (Pusa-44)", createCropItem(
-                    "CRITICAL: Long duration (160 days) variety highly vulnerable to rainfall deficits. Delay transplanting or pivot to shorter duration PR-126.",
-                    "Switch to PR-126 or PR-121",
-                    "Do not transplant without guaranteed continuous canal/tubewell power supply.",
-                    "Apply zinc sulphate and basal DAP; avoid excess nitrogen."
-            ));
-            map.put("Basmati", createCropItem(
-                    "Delay field transplanting. Maintain nursery seedlings with light alternate wetting. Nursery beds should not crack.",
-                    "Basmati PB-1847 or PB-1509",
-                    "Laser level fields and transplant on raised beds to economize water.",
-                    "Incorporate well-decomposed farmyard manure (FYM) to enhance water holding capacity."
-            ));
-            map.put("Cotton", createCropItem(
-                    "High prototype dry-spell risk (heuristic — not an IMD break forecast). Postpone square initiation stage irrigation until moisture stresses ease. Inspect for whitefly.",
-                    "Short duration cotton hybrid",
-                    "Alternate furrow irrigation to conserve 40% water.",
-                    "Foliar spray of 2% potassium nitrate (13:0:45) to mitigate drought stress."
-            ));
-            map.put("Maize", createCropItem(
-                    "Postpone sowing until a soaking rain of at least 25mm is received. Seedlings at 2-leaf stage are highly vulnerable.",
-                    "Cluster bean (Guar) or Bajra fodder",
-                    "Broad-bed furrow (BBF) planting to prevent drought stress.",
-                    "Band placement of basal NPK (12:32:16) at 5 cm below seed depth."
-            ));
-            map.put("Wheat", createCropItem(
-                    "Conserve existing kharif residual moisture. Laser-level fields and apply residue mulching.",
-                    "Gram (PBG-7) or Mustard",
-                    "Happy Seeder / Smart Seeder zero-tillage into paddy stubble.",
-                    "Plan basal DAP application with seed-cum-fertilizer drill."
-            ));
-            map.put("Sugarcane", createCropItem(
-                    "Do not plant new setts now. Mulch existing cane fields with trash mulch (10-12 cm) and arrange life-saving furrow irrigation.",
-                    "Fodder sorghum (SL-44)",
-                    "Paired-row trench planting with drip fertigation.",
-                    "Spray 2% urea + 2.5% MOP solution to reduce transpiration loss during dry heat."
-            ));
-        } else if (probability >= 0.30) {
-            map.put("Paddy (PR-126)", createCropItem(
-                    "Moderate risk. Keep nursery ready, but proceed with field transplanting only if tubewell/canal irrigation is secured. Monitor 3-day rainfall outlook.",
-                    "Direct seeded rice (DSR) with seed drill",
-                    "Transplant 25-30 day old seedlings at 20x15 cm spacing using alternate wetting & drying.",
-                    "Apply 1/3rd nitrogen as basal and incorporate into soil before transplanting."
-            ));
-            map.put("Paddy (Pusa-44)", createCropItem(
-                    "Transplant only in plots with assured tubewell water. If relying on monsoon showers, wait 3 days for cloud cover confirmation.",
-                    "PR-126 or PR-121",
-                    "Laser levelling + puddling with tractor-mounted puddler.",
-                    "Full basal dose of P and K; split N into three equal applications."
-            ));
-            map.put("Basmati", createCropItem(
-                    "Good window for nursery preparation and field puddling in irrigated areas. Maintain light standing water to prevent soil crack formation.",
-                    "Basmati PB-1847",
-                    "Transplant on raised beds or well-puddled leveled fields.",
-                    "Apply organic manure/FYM at 4-5 tonnes/acre to enhance moisture retention capacity."
-            ));
-            map.put("Cotton", createCropItem(
-                    "Sow only where pre-sowing irrigation (Rauni) has been completed; otherwise review the forecast in 3 days.",
-                    "Short-duration cotton hybrid",
-                    "Ridge-and-furrow planting to conserve moisture and facilitate easy draining.",
-                    "Apply half nitrogen and full phosphorus at sowing."
-            ));
-            map.put("Maize", createCropItem(
-                    "Prepare the seedbed and sow in moisture-retaining alluvial/clay loam plots after checking 3-day radar updates.",
-                    "Short-duration maize (PMH-1)",
-                    "Ridge sowing with seed drill on broad beds.",
-                    "Apply 50 kg DAP and 25 kg MOP per acre as basal dose."
-            ));
-            map.put("Wheat", createCropItem(
-                    "Assess field preparation and check soil moisture profile across root zone (0-30 cm).",
-                    "Wheat HD-3086 or PBW-725",
-                    "Direct drilling with Happy Seeder into anchored stubble.",
-                    "Ensure phosphorus availability in root-zone soil."
-            ));
-            map.put("Sugarcane", createCropItem(
-                    "Plant only in well-prepared irrigated plots. Keep furrows ready to manage brief moisture dips.",
-                    "Sugarcane Co-118",
-                    "Trench planting with trash mulching.",
-                    "Apply basal NPK and incorporate biofertilizers."
-            ));
-        } else {
-            map.put("Paddy (PR-126)", createCropItem(
-                    "OPTIMAL CONDITIONS: Low prototype dry-spell probability (<30%, heuristic — not an IMD forecast). Favourable moisture profile. Proceed with planned transplanting or direct seeding across all Sangrur blocks.",
-                    "Direct-seeded paddy (PR-126)",
-                    "Transplant in laser-levelled fields; practice Alternate Wetting and Drying (AWD) to save 25% water.",
-                    "Standard recommended schedule: Apply 1/3rd Urea + full DAP + MOP at transplanting."
-            ));
-            map.put("Paddy (Pusa-44)", createCropItem(
-                    "Suitable conditions for puddled transplanting where power supply is available.",
-                    "PR-126 or Basmati-1509",
-                    "Transplant 30-35 day seedlings in well-puddled clay loam fields.",
-                    "Apply recommended basal DAP (55 kg/acre) + MOP (20 kg/acre)."
-            ));
-            map.put("Basmati", createCropItem(
-                    "Ideal transplanting conditions for Basmati varieties (PB-1121, PB-1509, PB-1847).",
-                    "Basmati PB-1847",
-                    "Transplant 25-day seedlings at 20x15 cm spacing.",
-                    "Green manuring with Sesbania (Dhaincha) incorporation before transplanting."
-            ));
-            map.put("Cotton", createCropItem(
-                    "Favourable conditions. Complete direct planting on ridges.",
-                    "Bt Cotton hybrid",
-                    "Ridge sowing with tractor-driven planter.",
-                    "Apply half dose Nitrogen and full dose Phosphorus at planting."
-            ));
-            map.put("Maize", createCropItem(
-                    "High moisture profile is suitable for quick maize germination.",
-                    "Maize PMH-1 or PMH-13",
-                    "Flat bed or ridge sowing with seed drill.",
-                    "Apply starter DAP dose at sowing time."
-            ));
-            map.put("Wheat", createCropItem(
-                    "Prepare seedbed and preserve post-monsoon moisture profile.",
-                    "Wheat HD-2967 or PBW-824",
-                    "Zero tillage / Smart Seeder.",
-                    "Incorporate basal Phosphorus in root zone."
-            ));
-            map.put("Sugarcane", createCropItem(
-                    "Optimal moisture conditions for autumn/spring planting.",
-                    "Co-0238 or Co-118",
-                    "Deep trench planting with organic mulching.",
-                    "Apply balanced NPK as per PAU recommendations."
-            ));
+    @PostConstruct
+    void load() {
+        for (String b : RealForecastService.BLOCKS) {
+            for (String p : DistrictDataService.BLOCK_PANCHAYATS.getOrDefault(b, List.of())) {
+                panchayatBlocks.computeIfAbsent(p, k -> new ArrayList<>()).add(b);
+            }
         }
-
-        return map;
+        try (InputStream in = new ClassPathResource(CROP_RESOURCE).getInputStream()) {
+            cropReference = mapper.readTree(in);
+        } catch (Exception e) {
+            log.warn("Crop reference unavailable ({}); crop sections will be degraded", e.getMessage());
+        }
     }
 
-    private Map<String, String> createCropItem(String advice, String alternative, String method, String fertilizer) {
-        Map<String, String> m = new LinkedHashMap<>();
-        m.put("advice", advice);
-        m.put("alternative", alternative);
-        m.put("method", method);
-        m.put("fertilizer", fertilizer);
-        return m;
-    }
-
+    /**
+     * Full advisory: a deterministic function of (block, panchayat, crop,
+     * sowing date, irrigation source) over the live ECMWF IFS block forecast.
+     */
     public FarmerAnalysisResponse computeFarmerAnalysis(FarmerAnalysisRequest req) {
+        // P0: no silent block default — a missing/blank/unknown block is a 404.
         String block = req.getBlock();
-        String panchayat = req.getPanchayat();
-        String crop = req.getCrop() != null ? req.getCrop() : "Paddy (PR-126)";
-        String soil = req.getSoil() != null ? req.getSoil() : "Clay Loam";
-        String irrigation = req.getIrrigation() != null ? req.getIrrigation() : "Canals";
-
-        // REAL forecast context: P(LOW 7-day rainfall) is the dry probability.
-        // P0: missing/blank/unknown blocks throw BlockNotFoundException (HTTP 404,
-        // unknown_block) — never a silent fallback to Sunam or any other block.
         if (block == null || block.isBlank()) {
             throw new RealForecastService.BlockNotFoundException("(missing block)");
         }
-        Map<String, Object> forecast = realForecastService.findBlock(block)
+        String canonical = blocks.findBlock(block)
+                .map(b -> Objects.toString(b.get("block_name"), null))
+                .filter(Objects::nonNull)
                 .orElseThrow(() -> new RealForecastService.BlockNotFoundException(block));
-        @SuppressWarnings("unchecked")
-        Map<String, Object> probability = (Map<String, Object>) forecast.get("probability");
-        double prob = ((Number) probability.get("low")).doubleValue();
-        double forecastTotal = ((Number) forecast.get("forecast_7d_total_rainfall_mm")).doubleValue();
-        String rainfallCategory = Objects.toString(forecast.get("category"), "NORMAL");
 
-        String riskLevel = classifyRisk(prob);
-        double probPct = Math.round(prob * 1000.0) / 10.0;
+        String panchayat = req.getPanchayat() != null ? req.getPanchayat().trim() : "Suler Gherat";
+        String crop = req.getCrop() != null && !req.getCrop().isBlank()
+                ? req.getCrop() : "Paddy (PR-126)";
+        String irrigation = req.getIrrigation() != null && !req.getIrrigation().isBlank()
+                ? req.getIrrigation() : "Canals";
+        LocalDate sowingDate = parseSowingDate(req.getSowingDate());
 
-        double baseMoisture = 42.0 - (prob * 26.0);
-        if (soil.equalsIgnoreCase("Clay Loam")) baseMoisture += 6.0;
-        else if (soil.equalsIgnoreCase("Sandy Loam")) baseMoisture -= 7.0;
-        else if (soil.equalsIgnoreCase("Silt Loam")) baseMoisture += 2.0;
+        LiveWeatherService.BlockForecast fc = liveWeather.getForecast(false)
+                .blocks().get(canonical);
+        if (fc == null) {
+            throw new WeatherUnavailableException("No live data for block '" + canonical + "'");
+        }
 
-        if (irrigation.equalsIgnoreCase("Canals")) baseMoisture += 4.0;
-        else if (irrigation.equalsIgnoreCase("Tubewells")) baseMoisture += 3.0;
-        else if (irrigation.equalsIgnoreCase("Rainfed")) baseMoisture -= 6.0;
+        FarmerAnalysisResponse r = new FarmerAnalysisResponse();
+        r.setInputs(inputEcho(canonical, panchayat, crop, irrigation, sowingDate));
+        r.setLocation(locationSection(canonical, panchayat, fc));
+        r.setCropSection(cropSection(crop));
+        r.setStage(stageSection(crop, sowingDate));
+        r.setWeatherSection(weatherSection(fc));
+        r.setSoilSection(soilSection(canonical, fc));
+        r.setWaterDemand(waterDemandSection(fc));
+        r.setRisks(riskSection(crop, irrigation, fc));
+        r.setAdvisory(advisorySection(crop, irrigation, sowingDate, fc));
+        r.setSources(sourcesSection());
+        return r;
+    }
 
-        double soilMoisturePct = Math.max(14.0, Math.min(62.0, baseMoisture));
+    private Map<String, Object> inputEcho(String block, String panchayat,
+            String crop, String irrigation, LocalDate sowingDate) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("block", block);
+        m.put("panchayat", panchayat);
+        m.put("crop", crop);
+        m.put("irrigation", irrigation);
+        m.put("sowing_date", sowingDate == null ? null : sowingDate.toString());
+        m.put("sowing_date_provided", sowingDate != null);
+        return m;
+    }
 
-        String decisionTag;
-        String decisionTone;
-        String decisionColor;
-        if (prob >= 0.60 || (soilMoisturePct < 25.0 && irrigation.equalsIgnoreCase("Rainfed"))) {
-            decisionTag = "WAIT / DELAY SOWING";
-            decisionTone = "wait";
-            decisionColor = "#f27256";
-        } else if (prob >= 0.30 || soilMoisturePct < 32.0) {
-            decisionTag = "EXERCISE CAUTION";
-            decisionTone = "review";
-            decisionColor = "#f0c35e";
+    private Map<String, Object> locationSection(String block, String panchayat,
+            LiveWeatherService.BlockForecast fc) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        List<String> containing = panchayatBlocks.getOrDefault(panchayat, List.of());
+        // Duplicate panchayat names (e.g. Ubhawal in Sangrur AND Sunam) are
+        // disambiguated as "Panchayat (Block)"; unique names stay plain.
+        String label = (containing.size() > 1)
+                ? panchayat + " (" + block + " block)"
+                : panchayat;
+        m.put("panchayat_label", label);
+        m.put("block", block);
+        m.put("weather_resolution", "block");
+        m.put("resolution_note", containing.size() > 1
+                ? "'" + panchayat + "' appears under several blocks; weather is served at "
+                  + "block level and this advisory uses the " + block + " block forecast."
+                : "Weather is served at block level (no fabricated panchayat resolution).");
+        m.put("forecast_issue_date", fc.issueDate().toString());
+        m.put("forecast_retrieved_at", fc.retrievedAt().toString());
+        m.put("provider", "Open-Meteo");
+        m.put("model", "ECMWF IFS");
+        return m;
+    }
+
+    private Map<String, Object> cropSection(String crop) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("requested", crop);
+        JsonNode ref = findCrop(crop);
+        if (ref == null) {
+            m.put("known", false);
+            m.put("note", "Crop not in the cited PAU/ICAR reference; variety-specific "
+                    + "duration and stage guidance are not available.");
+            return m;
+        }
+        m.put("known", true);
+        m.put("canonical_id", ref.path("id").asText());
+        m.put("season", ref.path("season").isMissingNode() ? null : ref.path("season").asText());
+        m.put("duration_days", ref.path("duration_days").isInt()
+                ? Integer.valueOf(ref.path("duration_days").asInt()) : null);
+        JsonNode win = ref.path("sowing_window");
+        if (!win.isMissingNode() && win.isObject()) {
+            Map<String, Object> w = new LinkedHashMap<>();
+            w.put("start", textOrNull(win, "transplant_start", "sow_start", "plant_start"));
+            w.put("end", textOrNull(win, "transplant_end", "sow_end", "plant_end"));
+            w.put("note", textOrNull(win, "note"));
+            m.put("sowing_window", w);
         } else {
-            decisionTag = "SAFE TO SOW";
-            decisionTone = "sow";
-            decisionColor = "#9ed683";
+            m.put("sowing_window", null);
         }
+        m.put("water_need_class", textOrNull(ref, "water_need_class"));
+        m.put("source_ids", toList(ref.path("source_ids")));
+        return m;
+    }
 
-        LocalDate baseDate = LocalDate.now();
-        if (req.getSowingDate() != null && !req.getSowingDate().isEmpty()) {
-            try {
-                baseDate = LocalDate.parse(req.getSowingDate(), DateTimeFormatter.ISO_LOCAL_DATE);
-            } catch (Exception ignored) {}
+    private Map<String, Object> stageSection(String crop, LocalDate sowingDate) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("available", false);
+        m.put("stage", null);
+        m.put("days_since_sowing", null);
+        if (sowingDate == null) {
+            m.put("note", "No sowing date provided — crop stage cannot be determined. "
+                    + "Set the sowing date in the form for stage-specific guidance.");
+            return m;
         }
+        long d = ChronoUnit.DAYS.between(sowingDate, LocalDate.now());
+        m.put("days_since_sowing", (int) d);
+        JsonNode ref = findCrop(crop);
+        if (ref == null) {
+            m.put("note", "Crop not in the cited reference; stage is not available.");
+            return m;
+        }
+        JsonNode stages = ref.path("stages");
+        if (!stages.isArray() || stages.size() == 0) {
+            m.put("note", "Stage banding not available for this crop in the cited sources.");
+            return m;
+        }
+        for (JsonNode s : stages) {
+            if (d >= s.path("start_day").asInt(Integer.MIN_VALUE)
+                    && d <= s.path("end_day").asInt(Integer.MAX_VALUE)) {
+                m.put("available", true);
+                m.put("stage", s.path("name").asText());
+                m.put("stage_start_day", s.path("start_day").asInt());
+                m.put("stage_end_day", s.path("end_day").asInt());
+                break;
+            }
+        }
+        if (!Boolean.TRUE.equals(m.get("available"))) {
+            m.put("note", d < 0
+                    ? "Sowing date is in the future; stage not applicable yet."
+                    : "Days since sowing exceed the cited crop duration; stage not available.");
+        }
+        return m;
+    }
 
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("MMM dd");
-        String recWindow;
-        if (decisionTone.equals("sow")) {
-            recWindow = baseDate.format(dtf) + " – " + baseDate.plusDays(6).format(dtf);
-        } else if (decisionTone.equals("review")) {
-            recWindow = baseDate.plusDays(3).format(dtf) + " – " + baseDate.plusDays(9).format(dtf);
+    private Map<String, Object> weatherSection(LiveWeatherService.BlockForecast fc) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("source_endpoint", "/api/weather/forecast/" + fc.blockName());
+        m.put("provider", "Open-Meteo");
+        m.put("model", "ECMWF IFS");
+        m.put("issue_date", fc.issueDate().toString());
+        m.put("horizon_days", fc.days().size());
+
+        Double rain3 = fc.cum3Mm(), rain7 = fc.cum7Mm(), rain15 = fc.cum15Mm();
+        m.put("rain_3d_mm", rain3);
+        m.put("rain_7d_mm", rain7);
+        m.put("rain_15d_mm", rain15);
+        m.put("rain_3d_status", statusOf(rain3, "mm"));
+        m.put("rain_7d_status", statusOf(rain7, "mm"));
+        m.put("rain_15d_status", statusOf(rain15, "mm"));
+        m.put("et0_7d_mm", fc.et0_7dMm());
+        m.put("et0_7d_status", statusOf(fc.et0_7dMm(), "mm"));
+
+        m.put("days", fc.days().stream().map(d -> {
+            Map<String, Object> dm = new LinkedHashMap<>();
+            dm.put("date", d.date().toString());
+            dm.put("horizon_day", d.horizonDay());
+            dm.put("rainfall_mm", d.rainfallMm());
+            dm.put("rain_probability_pct", d.rainProbabilityPct());
+            dm.put("temperature_max_c", d.temperatureMaxC());
+            dm.put("temperature_min_c", d.temperatureMinC());
+            dm.put("et0_mm", d.et0Mm());
+            dm.put("soil_moisture_0_to_7cm", d.soilMoisture0To7CmVwc());
+            return dm;
+        }).toList());
+        return m;
+    }
+
+    private Map<String, Object> soilSection(String block, LiveWeatherService.BlockForecast fc) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        // Forecast surface moisture from the SAME live feed — never a synthetic gauge.
+        Double v = (fc.days().isEmpty()) ? null : fc.days().get(0).soilMoisture0To7CmVwc();
+        m.put("forecast_surface_soil_moisture_vwc", v);
+        m.put("forecast_surface_soil_moisture_status", statusOf(v, "m3/m3"));
+        m.put("label", v == null
+                ? "Forecast surface soil moisture: No data"
+                : "Forecast surface soil moisture");
+        m.put("source", "ECMWF IFS soil_moisture_0_to_7cm, block mean, day 1 of the live forecast");
+        m.put("measured_context", soilContext.describe(block)); // SoilGrids, display-only
+        m.put("note", "This is a model forecast of the surface layer, not a field measurement; "
+                + "the SoilGrids context describes the soil, not today's moisture.");
+        return m;
+    }
+
+    private Map<String, Object> waterDemandSection(LiveWeatherService.BlockForecast fc) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        Double rain7 = fc.cum7Mm();
+        Double et0_7d = fc.et0_7dMm();
+        // Simple climatic water balance of the coming week: rainfall minus ET0.
+        // Deterministic arithmetic on live values only — no invented crop coefficients.
+        m.put("rain_7d_mm", rain7);
+        m.put("et0_7d_mm", et0_7d);
+        m.put("rain_minus_et0_7d_mm",
+                (rain7 != null && et0_7d != null) ? round1(rain7 - et0_7d) : null);
+        m.put("interpretation", waterBalanceWords(rain7, et0_7d));
+        m.put("note", "Crop coefficients (Kc) per variety are not available in the cited "
+                + "PAU/ICAR package-of-practices documents, so this is a climate water "
+                + "balance, not a field irrigation dosage.");
+        return m;
+    }
+
+    private Map<String, Object> riskSection(String crop, String irrigation,
+            LiveWeatherService.BlockForecast fc) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        List<String> flags = new ArrayList<>();
+
+        // Dry-spell watch: consecutive early days with low rainfall probability
+        // and little rain — described in WORDS, never as a fabricated percentage.
+        int dryDaysAhead = countDryDaysAhead(fc);
+        if (dryDaysAhead >= 5) flags.add("dry_spell_watch");
+
+        // Heavy-rain watch: any day >= 35 mm block-mean rainfall.
+        boolean heavyRain = fc.days().stream()
+                .anyMatch(d -> d.rainfallMm() != null && d.rainfallMm() >= 35.0);
+        if (heavyRain) flags.add("heavy_rain_watch");
+
+        // Heat watch: max temperature >= 37 C on any of the first 7 days.
+        boolean heat = fc.days().stream().limit(7)
+                .anyMatch(d -> d.temperatureMaxC() != null && d.temperatureMaxC() >= 37.0);
+        if (heat) flags.add("heat_stress_watch");
+
+        // Waterlogging watch for low-tolerance crops: >= 60 mm over the next 3 days.
+        JsonNode ref = findCrop(crop);
+        String wlTol = ref == null ? null
+                : ref.path("sensitivities").path("waterlogging_tolerance").isTextual()
+                        ? ref.path("sensitivities").path("waterlogging_tolerance").asText() : null;
+        Double rain3 = fc.cum3Mm();
+        boolean waterlog = rain3 != null && rain3 >= 60.0
+                && (wlTol == null || wlTol.equalsIgnoreCase("low"));
+        if (waterlog) flags.add("waterlogging_watch");
+
+        m.put("flags", flags);
+        m.put("dry_spell_watch", drySpellWatchWords(dryDaysAhead));
+        m.put("rainfed_caution", "Rainfed".equalsIgnoreCase(irrigation)
+                ? "Irrigation source is Rainfed: rainfall timing decides every irrigation "
+                  + "event; check the dry-spell watch before critical crop stages."
+                : null);
+        return m;
+    }
+
+    private Map<String, Object> advisorySection(String crop, String irrigation,
+            LocalDate sowingDate, LiveWeatherService.BlockForecast fc) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        JsonNode ref = findCrop(crop);
+        Double rain7 = fc.cum7Mm();
+        Double et07 = fc.et0_7dMm();
+        Double soilD1 = fc.days().isEmpty() ? null : fc.days().get(0).soilMoisture0To7CmVwc();
+        int dryDays = countDryDaysAhead(fc);
+
+        List<String> actions = new ArrayList<>();
+        // Irrigation guidance — deterministic on live rain/ET0/soil moisture + crop class.
+        if (rain7 == null) {
+            actions.add("Rainfall for the coming week is not available; check the live "
+                    + "forecast before scheduling irrigation.");
+        } else if (dryDays >= 5 && rain7 < 10.0) {
+            actions.add("Dry-spell watch: little or no meaningful rain expected for the next "
+                    + "five days. Plan irrigation for the coming week; for transplanted rice, "
+                    + "maintain the standing water layer.");
+        } else if (rain7 >= 40.0) {
+            actions.add("Substantial rain expected this week (" + fmt(rain7)
+                    + " mm over 7 days). Postpone irrigation and check drainage in "
+                    + "low-tolerance crops.");
+        } else if (et07 != null && rain7 < et07) {
+            actions.add("Expected evapotranspiration (" + fmt(et07)
+                    + " mm over 7 days) exceeds expected rainfall (" + fmt(rain7)
+                    + " mm). Soil water will be drawn down — schedule irrigation for "
+                    + "moisture-sensitive stages.");
         } else {
-            recWindow = baseDate.plusDays(7).format(dtf) + " – " + baseDate.plusDays(14).format(dtf);
+            actions.add("No immediate irrigation trigger from the 7-day outlook: expected "
+                    + "rainfall (" + fmt(rain7) + " mm) covers part of the atmospheric demand.");
+        }
+        if (soilD1 != null && soilD1 < 0.12) {
+            actions.add("Forecast surface soil moisture is low (" + fmt(soilD1)
+                    + " m3/m3 on " + fc.days().get(0).date() + "); the top layer will dry "
+                    + "quickly without rain.");
+        }
+        if ("Rainfed".equalsIgnoreCase(irrigation)) {
+            actions.add("Rainfed field: every operation depends on the realised rain; "
+                    + "re-check the live forecast daily.");
         }
 
-        Map<String, String> fourPillars = new LinkedHashMap<>();
-        // Weather pillar reflects the REAL forecast category (LOW rain = high dry risk).
-        fourPillars.put("weather_risk", rainfallCategory.equals("LOW") ? "High"
-                : rainfallCategory.equals("HIGH") ? "Low" : "Moderate");
-        fourPillars.put("soil_moisture_risk", soilMoisturePct >= 38 ? "Low" : soilMoisturePct >= 28 ? "Moderate" : "High");
-        fourPillars.put("crop_vulnerability_risk", crop.contains("PR-126") ? "Low" : crop.contains("Pusa-44") ? "High" : "Moderate");
-        // P0: key name retained for JSON stability; value is a prototype dry-spell
-        // heuristic (P(LOW 7-day rainfall)), NOT an IMD onset/break forecast.
-        fourPillars.put("dry_break_risk", riskLevel);
+        // Sowing window guidance (cited).
+        if (ref != null && sowingDate != null) {
+            String sowNote = sowingWindowWords(ref, sowingDate);
+            if (sowNote != null) actions.add(sowNote);
+        } else if (ref != null && sowWindowStart(ref) != null) {
+            actions.add("Cited sowing window for " + ref.path("id").asText() + ": "
+                    + sowWindowStart(ref) + " to " + Objects.toString(sowWindowEnd(ref), "-") + ".");
+        }
+        String hint = ref == null ? null : textOrNull(ref, "irrigation_rule_hint");
+        if (hint != null) actions.add(hint);
 
-        Map<String, Map<String, String>> allCrops = getAllCropAdvice(prob);
-        Map<String, String> selectedCrop = allCrops.getOrDefault(crop, allCrops.get("Paddy (PR-126)"));
+        m.put("actions", actions);
+        m.put("deterministic", true);
+        m.put("explanation", "Rules use only the live ECMWF IFS block forecast and the "
+                + "cited PAU/ICAR crop reference. Change any input (crop, sowing date, "
+                + "irrigation, block) and the matching sections change with it.");
+        return m;
+    }
 
-        Map<String, String> explanation = new LinkedHashMap<>();
-        String outlookLine = "7-day outlook " + forecastTotal + " mm (" + rainfallCategory + "). ";
-        explanation.put("en", "For " + crop + " in " + panchayat + " (" + block + " Block), " + outlookLine +
-                 (decisionTone.equals("sow") ? "soil moisture (" + Math.round(soilMoisturePct) + "%) and monsoon probability indicate favorable sowing conditions." :
-                  decisionTone.equals("review") ? "moderate prototype dry-spell risk (" + probPct + "%, heuristic — not an IMD onset/break forecast). Ensure supplemental irrigation before nursery transplanting." :
-                  "high dry-spell risk (" + probPct + "%, prototype heuristic — not an IMD onset/break forecast). Delay sowing by 7 days to avoid seedling desiccation."));
+    private Map<String, Object> sourcesSection() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("weather", List.of(
+                "Open-Meteo API delivering ECMWF IFS (model ecmwf_ifs), daily + hourly, "
+                        + "Asia/Kolkata, 16-day horizon — GET /api/weather/forecast/{block}"));
+        List<String> agronomy = new ArrayList<>();
+        if (cropReference != null && cropReference.path("sources").isArray()) {
+            for (JsonNode s : cropReference.path("sources")) {
+                agronomy.add(s.path("id").asText() + ": " + s.path("title").asText()
+                        + " — " + s.path("publisher").asText());
+            }
+        }
+        m.put("agronomy", agronomy);
+        m.put("soil", "SoilGrids 0-5 cm block means (risk/soil_context.json), display context only");
+        m.put("integrity_note", "No synthetic soil-moisture gauge, no dry-spell percentages, no "
+                + "frozen CHIRPS-GEFS artifacts; missing data is reported as 'No data'.");
+        return m;
+    }
 
-        explanation.put("hi", panchayat + " (" + block + " ब्लॉक) में " + crop + " के लिए, " +
-                (decisionTone.equals("sow") ? "मिट्टी की नमी (" + Math.round(soilMoisturePct) + "%) और मौसम बुवाई के लिए पूर्णतः अनुकूल हैं।" :
-                 decisionTone.equals("review") ? "मध्यम सूखा जोखिम (" + probPct + "%) है। बुवाई से पूर्व सिंचाई की व्यवस्था सुनिश्चित करें।" :
-                 "सूखे का बड़ा खतरा (" + probPct + "%) है। बीज व पौध को नुकसान से बचाने हेतु बुवाई 7 दिन टालें।"));
+    /* ------------------------------------------------------------------ */
+    /* Deterministic helpers                                               */
+    /* ------------------------------------------------------------------ */
 
-        explanation.put("pa", panchayat + " (" + block + " ਬਲਾਕ) ਵਿੱਚ " + crop + " ਲਈ, " +
-                (decisionTone.equals("sow") ? "ਜ਼ਮੀਨੀ ਨਮੀ (" + Math.round(soilMoisturePct) + "%) ਅਤੇ ਮੌਸਮ ਬੀਜਾਈ ਲਈ ਬਹੁਤ ਵਧੀਆ ਹਨ।" :
-                 decisionTone.equals("review") ? "ਦਰਮਿਆਨਾ ਸੋਕਾ ਜੋਖਮ (" + probPct + "%) ਹੈ। ਪਨੀਰੀ ਲਾਉਣ ਤੋਂ ਪਹਿਲਾਂ ਨਹਿਰੀ/ਟਿਊਬਵੈੱਲ ਪਾਣੀ ਯਕੀਨੀ ਬਣਾਓ।" :
-                 "ਸੋਕੇ ਦਾ ਵੱਡਾ ਖ਼ਤਰਾ (" + probPct + "%) ਹੈ। ਪਨੀਰੀ ਨੂੰ ਸੁੱਕਣ ਤੋਂ ਬਚਾਉਣ ਲਈ ਬੀਜਾਈ 7 ਦਿਨ ਅੱਗੇ ਪਾਓ।"));
+    /** Days (first 5 of the horizon) where P(rain) < 25% AND rainfall < 2 mm. */
+    private int countDryDaysAhead(LiveWeatherService.BlockForecast fc) {
+        int n = 0;
+        for (LiveWeatherService.BlockDaily d : fc.days()) {
+            if (d.horizonDay() > 5) break;
+            boolean lowProb = d.rainProbabilityPct() != null && d.rainProbabilityPct() < 25.0;
+            boolean littleRain = d.rainfallMm() == null || d.rainfallMm() < 2.0;
+            if (lowProb && littleRain) n++;
+        }
+        return n;
+    }
 
-        Map<String, String> whatsappShare = new LinkedHashMap<>();
-        whatsappShare.put("en", "🌾 *SAARTHI KISAN ADVISORY — SANGRUR*\n" +
-                "📍 *Location:* " + panchayat + ", " + block + "\n" +
-                "🌱 *Crop:* " + crop + " | *Soil:* " + soil + "\n" +
-                "📊 *Decision:* *" + decisionTag + "*\n" +
-                "📅 *Recommended Window:* " + recWindow + "\n" +
-                "💧 *Root-Zone Moisture:* " + Math.round(soilMoisturePct) + "% | *Dry-Spell Risk (heuristic):* " + probPct + "%\n\n" +
-                "💡 *Advisory:* " + explanation.get("en") + "\n" +
-                "— Powered by SAARTHI AI (SIH26086)");
+    private String drySpellWatchWords(int dryDays) {
+        if (dryDays >= 5) return "Watch: the first five days of the forecast are largely "
+                + "rain-free. A dry spell is likely in this window.";
+        if (dryDays >= 3) return "Some rain-free days in the first five days of the forecast; "
+                + "keep irrigation plans ready.";
+        return "No dry-spell signal in the first five days of the forecast.";
+    }
 
-        whatsappShare.put("hi", "🌾 *सारथी किसान सलाह — संगरूर जिला*\n" +
-                "📍 *स्थान:* " + panchayat + ", " + block + "\n" +
-                "🌱 *फसल:* " + crop + " | *मिट्टी:* " + soil + "\n" +
-                "📊 *निर्णय:* *" + decisionTag + "*\n" +
-                "📅 *उचित बुवाई समय:* " + recWindow + "\n" +
-                "💧 *मिट्टी नमी:* " + Math.round(soilMoisturePct) + "% | *सूखा जोखिम:* " + probPct + "%\n\n" +
-                "💡 *कृषि सलाह:* " + explanation.get("hi") + "\n" +
-                "— सारथी मानसूनी बुद्धिमत्ता (SIH26086)");
+    private String waterBalanceWords(Double rain7, Double et07) {
+        if (rain7 == null || et07 == null) {
+            return "Water balance not available — " + (rain7 == null ? "rainfall" : "ET0")
+                    + " missing from the live feed for this block.";
+        }
+        double bal = rain7 - et07;
+        if (bal >= 10.0) return "Surplus week: expected rainfall exceeds atmospheric demand by "
+                + fmt(bal) + " mm.";
+        if (bal >= -10.0) return "Near-balanced week: rainfall roughly matches atmospheric "
+                + "demand (" + fmt(bal) + " mm).";
+        return "Deficit week: atmospheric demand exceeds expected rainfall by "
+                + fmt(-bal) + " mm — irrigation planning matters this week.";
+    }
 
-        whatsappShare.put("pa", "🌾 *ਸਾਰਥੀ ਕਿਸਾਨ ਸਲਾਹ — ਸੰਗਰੂਰ*\n" +
-                "📍 *ਥਾਂ:* " + panchayat + ", " + block + "\n" +
-                "🌱 *ਫ਼ਸਲ:* " + crop + " | *ਮਿੱਟੀ:* " + soil + "\n" +
-                "📊 *ਫ਼ੈਸਲਾ:* *" + decisionTag + "*\n" +
-                "📅 *ਬੀਜਾਈ ਦਾ ਸਹੀ ਸਮਾਂ:* " + recWindow + "\n" +
-                "💧 *ਜ਼ਮੀਨੀ ਨਮੀ:* " + Math.round(soilMoisturePct) + "% | *ਸੋਕਾ ਜੋਖਮ:* " + probPct + "%\n\n" +
-                "💡 *ਸਲਾਹ:* " + explanation.get("pa") + "\n" +
-                "— ਸਾਰਥੀ AI (SIH26086)");
+    private String sowingWindowWords(JsonNode ref, LocalDate sowingDate) {
+        String start = sowWindowStart(ref), end = sowWindowEnd(ref);
+        if (start == null || end == null) return null;
+        try {
+            int y = LocalDate.now().getYear();
+            LocalDate ws = LocalDate.parse(y + "-" + start);
+            LocalDate we = LocalDate.parse(y + "-" + end);
+            if (ws.isAfter(we)) {
+                if (sowingDate.isBefore(ws)) ws = ws.minusYears(1); else we = we.plusYears(1);
+            }
+            if (!sowingDate.isBefore(ws) && !sowingDate.isAfter(we)) {
+                return "Sowing date " + sowingDate + " falls inside the cited sowing window ("
+                        + start + " to " + end + ").";
+            }
+            return "Sowing date " + sowingDate + " is OUTSIDE the cited sowing window ("
+                    + start + " to " + end + ") for " + ref.path("id").asText() + ".";
+        } catch (Exception e) {
+            return null;
+        }
+    }
 
-        FarmerAnalysisResponse.Outputs outputs = new FarmerAnalysisResponse.Outputs();
-        outputs.setDrySpellProbability(probPct);
-        outputs.setRiskLevel(riskLevel);
-        outputs.setModelSource("Raw CHIRPS-GEFS 7-day outlook + prototype agronomy guidance (dry-spell indicator is a heuristic, not an IMD onset/break forecast)");
-        outputs.setForecastTotalMm(forecastTotal);
-        outputs.setRainfallCategory(rainfallCategory);
-        outputs.setProbLow(((Number) probability.get("low")).doubleValue());
-        outputs.setProbNormal(((Number) probability.get("normal")).doubleValue());
-        outputs.setProbHigh(((Number) probability.get("high")).doubleValue());
-        outputs.setDecisionTag(decisionTag);
-        outputs.setDecisionTone(decisionTone);
-        outputs.setDecisionColor(decisionColor);
-        outputs.setRecommendedWindow(recWindow);
-        outputs.setExplanation(explanation);
-        outputs.setFourPillars(fourPillars);
-        outputs.setRootZoneSoilMoisturePct(Math.round(soilMoisturePct * 10.0) / 10.0);
-        outputs.setCropGuidance(selectedCrop);
-        outputs.setWhatsappShare(whatsappShare);
+    private String sowWindowStart(JsonNode ref) {
+        JsonNode w = ref.path("sowing_window");
+        return textOrNull(w, "transplant_start", "sow_start", "plant_start");
+    }
 
-        Map<String, Object> inputEcho = new LinkedHashMap<>();
-        inputEcho.put("block", block);
-        inputEcho.put("panchayat", panchayat);
-        inputEcho.put("crop", crop);
-        inputEcho.put("soil", soil);
-        inputEcho.put("irrigation", irrigation);
-        inputEcho.put("sowing_date", baseDate.toString());
+    private String sowWindowEnd(JsonNode ref) {
+        JsonNode w = ref.path("sowing_window");
+        return textOrNull(w, "transplant_end", "sow_end", "plant_end");
+    }
 
-        FarmerAnalysisResponse response = new FarmerAnalysisResponse();
-        response.setInputs(inputEcho);
-        response.setOutputs(outputs);
-        return response;
+    private JsonNode findCrop(String requested) {
+        if (cropReference == null || requested == null) return null;
+        for (JsonNode c : cropReference.path("crops")) {
+            if (requested.equalsIgnoreCase(c.path("id").asText())) return c;
+        }
+        for (JsonNode c : cropReference.path("crops")) {
+            if (c.path("aliases").isArray()) {
+                for (JsonNode a : c.path("aliases")) {
+                    if (requested.equalsIgnoreCase(a.asText())) return c;
+                }
+            }
+        }
+        return null;
+    }
+
+    private LocalDate parseSowingDate(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            return LocalDate.parse(raw.trim(), DateTimeFormatter.ISO_LOCAL_DATE);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String statusOf(Double v, String unit) {
+        return v == null ? "No data" : v + " " + unit;
+    }
+
+    private String fmt(double v) {
+        return String.format(Locale.ROOT, "%.1f", v);
+    }
+
+    private double round1(double v) {
+        return Math.round(v * 10.0) / 10.0;
+    }
+
+    private String textOrNull(JsonNode n, String... keys) {
+        for (String k : keys) {
+            if (n != null && n.has(k) && n.get(k).isTextual()) return n.get(k).asText();
+        }
+        return null;
+    }
+
+    private List<String> toList(JsonNode arr) {
+        List<String> out = new ArrayList<>();
+        if (arr.isArray()) for (JsonNode v : arr) out.add(v.asText());
+        return out;
     }
 }

@@ -39,7 +39,14 @@ public interface WeatherProvider {
             double longitude,
             List<DailyPointValues> days) {}
 
-    /** One calendar-day forecast (Asia/Kolkata local date) at one point. */
+    /**
+     * One calendar-day forecast (Asia/Kolkata local date) at one point.
+     *
+     * <p>Agronomic extras (ET0, surface soil moisture, rain/showers split,
+     * WMO weather code) come from the SAME provider request — never a second
+     * HTTP call. Every extra stays {@code null} when the provider does not
+     * return it (missing is never zero-filled).
+     */
     record DailyPointValues(
             LocalDate date,
             Double precipitationMm,
@@ -47,5 +54,19 @@ public interface WeatherProvider {
             Double temperatureMaxC,
             Double temperatureMinC,
             Double humidityPct,
-            Double windSpeedKmh) {}
+            Double windSpeedKmh,
+            Double et0Mm,
+            Double soilMoisture0To7CmVwc,
+            Double rainMm,
+            Double showersMm,
+            Integer weatherCode) {
+
+        /** Back-compatible 7-argument construction: agronomic extras default to {@code null}. */
+        public DailyPointValues(LocalDate date, Double precipitationMm,
+                Double precipitationProbability, Double temperatureMaxC,
+                Double temperatureMinC, Double humidityPct, Double windSpeedKmh) {
+            this(date, precipitationMm, precipitationProbability, temperatureMaxC,
+                    temperatureMinC, humidityPct, windSpeedKmh, null, null, null, null, null);
+        }
+    }
 }

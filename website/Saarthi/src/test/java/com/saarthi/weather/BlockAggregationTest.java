@@ -88,4 +88,51 @@ class BlockAggregationTest {
         assertFalse((Boolean) agg.cum30().get("available"));
         assertTrue(agg.cum30().get("reason").toString().contains("16-day"));
     }
+
+    /** Seven days carrying ET0/soil-moisture extras at every point. */
+    private static List<WeatherProvider.LocationDailyForecast> agronomyLocs(double et0, double soil) {
+        List<WeatherProvider.DailyPointValues> days = new ArrayList<>();
+        LocalDate d = LocalDate.parse("2026-09-18");
+        for (int i = 0; i < 7; i++) {
+            days.add(new WeatherProvider.DailyPointValues(
+                    d.plusDays(i), 1.0, 50.0, 32.0, 24.0, 60.0, 10.0,
+                    et0, soil, 1.0, 0.0, 2));
+        }
+        return List.of(new WeatherProvider.LocationDailyForecast(30.1, 75.8, days),
+                new WeatherProvider.LocationDailyForecast(30.2, 75.8, days));
+    }
+
+    @Test
+    void et0AndSoilMoistureAggregateAsBlockMeans() {
+        var agg = LiveWeatherService.aggregateBlock("Sangrur", agronomyLocs(5.0, 0.20),
+                "m", LocalDate.parse("2026-09-17"), Instant.now());
+        assertEquals(5.0, agg.days().get(0).et0Mm(), 1e-9,
+                "ET0 block-mean across sample points");
+        assertEquals(0.20, agg.days().get(0).soilMoisture0To7CmVwc(), 1e-9,
+                "soil moisture block-mean across sample points");
+        assertEquals(35.0, agg.et0_7dMm(), 1e-9, "7-day ET0 total = 7 x 5.0");
+        assertEquals(2, agg.days().get(0).weatherCode());
+    }
+
+    @Test
+    void et0WindowUnavailableWhenAnyDayMissingEt0() {
+        // Same feed but the last day lacks ET0 (constructed via back-compatible ctor).
+        List<WeatherProvider.DailyPointValues> days = new ArrayList<>();
+        LocalDate d = LocalDate.parse("2026-09-18");
+        for (int i = 0; i < 7; i++) {
+            if (i < 6) {
+                days.add(new WeatherProvider.DailyPointValues(
+                        d.plusDays(i), 1.0, 50.0, 32.0, 24.0, 60.0, 10.0,
+                        4.0, 0.2, 1.0, 0.0, 2));
+            } else {
+                days.add(new WeatherProvider.DailyPointValues(
+                        d.plusDays(i), 1.0, 50.0, 32.0, 24.0, 60.0, 10.0));
+            }
+        }
+        var agg = LiveWeatherService.aggregateBlock("Dhuri",
+                List.of(new WeatherProvider.LocationDailyForecast(30.1, 75.8, days)),
+                "m", LocalDate.parse("2026-09-17"), Instant.now());
+        assertNull(agg.et0_7dMm(),
+                "7-day ET0 must be unavailable when any day lacks ET0, not a partial sum");
+    }
 }

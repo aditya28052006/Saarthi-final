@@ -16,7 +16,7 @@ Source of truth: `data/processed/application/latest_forecast.json` (canonical), 
 | `GET /api/forecast/summary` | `summary` object (district totals, category lists) |
 | `GET /api/advisories/{blockId}` | `advisories[]` of the block (prototype-labeled; unknown block → 404) |
 | `GET /api/panchayats[?block=]` | panchayat reference lists; unknown `block` → 404 `unknown_block` (never a silent fallback) |
-| `POST /api/farmer-analysis` | agronomy guidance from the REAL forecast; unknown/missing/blank block → 404 `unknown_block` (never another block's rainfall) |
+| `POST /api/farmer-analysis` | **Advisory rework (live contract)**: deterministic 9-section advisory built ONLY from `GET /api/weather/forecast/{block}` (ECMWF IFS) + `agronomy/crop_reference.json` (PAU/ICAR-cited) + SoilGrids context. Sections: `inputs, location, crop, stage, weather, soil, water_demand, risks, advisory, sources`. Unknown/missing/blank block → 404 `unknown_block`; no synthetic soil-moisture gauge, no dry-spell percentages, no frozen CHIRPS-GEFS inputs. |
 | `GET /api/climate-context` | MJO/IOD/ENSO summary (explanatory only; unavailable → `{available:false}`, rainfall unaffected; DMI numeric) |
 | `POST /api/climate-context/reload` | re-reads the climate package (no restart; fail-soft → `{available:false}`, HTTP 200) |
 | `GET /api/mjo/latest` | MJO node only |

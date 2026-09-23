@@ -12,19 +12,21 @@ const I18N_DICTIONARY = {
     nav_map: "Risk Map",
     nav_timeline: "Forecast",
     nav_check_block: "Check your block",
-    live_monitoring: "Sangrur Live Monitoring",
-    district_name: "Sangrur District, Punjab",
+    live_monitoring: "Live Monitoring",
+    district_name: "Select State → District → Block · Live ECMWF IFS Outlook",
+    geo_state: "State",
+    geo_district: "District",
 
     // Hero / Landing
     hero_eyebrow: "Hyperlocal Climate Intelligence",
     hero_title_1: "Know the",
     hero_title_em: "monsoon",
     hero_title_2: "before it arrives.",
-    hero_desc: "Validated 7-day rainfall outlook for Sangrur's 6 blocks, with probabilistic LOW / NORMAL / HIGH categories.",
+    hero_desc: "Live 16-day ECMWF IFS rainfall outlook for your selected block, with a 17–30 day climatological outlook.",
     hero_cta: "Open Farmer Portal",
     hero_secondary_cta: "View Risk Map",
     hero_badge: "Designed for every field, every season",
-    hero_card_kicker: "Saarthi · Sangrur, Punjab",
+    hero_card_kicker: "Saarthi · Live Block Outlook",
     hero_card_signal: "This week's monsoon signal",
     hero_card_days: "days",
     hero_card_sub: "early warning for dry spells",
@@ -35,8 +37,8 @@ const I18N_DICTIONARY = {
     // Stats
     stat_1_val: "7-Day",
     stat_1_lbl: "Validated Rainfall Outlook",
-    stat_2_val: "6",
-    stat_2_lbl: "Validated Forecast Signals",
+    stat_2_val: "D+1–D+16",
+    stat_2_lbl: "Live horizon per selected block",
     stat_3_val: "6 Blocks",
     stat_3_lbl: "Validated Bhuvan Boundaries",
     stat_4_val: "19.54 mm",
@@ -44,19 +46,19 @@ const I18N_DICTIONARY = {
 
     // Feature Cards
     portal_features_title: "Explore the SAARTHI Platform",
-    portal_features_sub: "Decision support portals built for farmers and agriculture communities in Sangrur.",
+    portal_features_sub: "Decision support portals for farmers and agriculture communities.",
     card_farmer_title: "Farmer Advisory Portal",
     card_farmer_desc: "Personalized sowing decisions, 4-pillar risk breakdown, and root-zone moisture dial.",
     card_map_title: "Block-Scale Outlook Map",
-    card_map_desc: "Interactive map of the six validated Sangrur blocks with 7-day rainfall categories.",
+    card_map_desc: "Interactive map with live rainfall categories for Sangrur polygons and any selected block.",
     card_timeline_title: "7-Day Forecast Outlook",
-    card_timeline_desc: "Validated daily rainfall, probabilities and 7-day matrix per block.",
+    card_timeline_desc: "Live daily rainfall, probabilities and day-by-day matrix for the selected block.",
 
     // Landing Outlook Section
     outlook_heading: "Your Block Outlook",
     outlook_title_1: "One selection.",
     outlook_title_em: "A clear decision.",
-    outlook_desc: "Select your block in Sangrur. Saarthi shows the validated 7-day rainfall outlook with probabilities.",
+    outlook_desc: "Select State → District → Block. Saarthi shows the live ECMWF IFS rainfall outlook with 3/7/15-day totals.",
     choose_block: "Choose your block",
     latest_block_analysis: "Latest Block Analysis",
     rain_7d: "7-day total rainfall",
@@ -69,7 +71,7 @@ const I18N_DICTIONARY = {
 
     // Farmer Portal
     farmer_title: "Farmer Advisory",
-    farmer_subtitle: "Hyperlocal sowing decisions & root-zone telemetry for Sangrur farmers.",
+    farmer_subtitle: "Hyperlocal sowing decisions for your selected block.",
     farm_profile: "Farm Profile",
     lbl_block: "Block",
     lbl_panchayat: "Panchayat",
@@ -79,29 +81,29 @@ const I18N_DICTIONARY = {
     lbl_irrigation: "Irrigation Source",
     btn_update_advisory: "Compute Advisory",
     lbl_sowing_decision: "Sowing Decision",
-    lbl_recommended_window: "Recommended Window",
+    lbl_recommended_window: "Cited Sowing Window",
     lbl_model_confidence: "Model Source",
-    pillar_weather: "Weather Risk",
-    pillar_soil: "Soil Moisture Risk",
-    pillar_crop: "Crop Vulnerability",
-    pillar_dry_spell: "Dry-Spell Risk (heuristic)",
-    lbl_root_moisture: "Root-Zone Soil Moisture",
+    pillar_weather: "Weather Watch",
+    pillar_soil: "Surface Soil Moisture",
+    pillar_crop: "Crop Water Need",
+    pillar_dry_spell: "Dry-Spell Watch",
+    lbl_root_moisture: "Forecast Surface Soil Moisture",
     lbl_root_moisture_sub: "Volumetric water content in active root zone (0–30 cm).",
     btn_copy_whatsapp: "Share WhatsApp Advisory",
     btn_copied: "Advisory Copied to Clipboard ✓",
 
     // Map
     map_title: "Block-Scale Outlook Map",
-    map_subtitle: "Interactive map of the six validated Sangrur blocks.",
+    map_subtitle: "Interactive block map with live rainfall categories.",
     map_filter_block: "Filter by Block",
     map_filter_risk: "Filter by Category",
-    map_all_blocks: "All 6 Blocks",
+    map_all_blocks: "All blocks",
     map_all_risks: "All Categories",
     map_panchayats_active: "Panchayats Monitored",
 
     // Timeline / Forecast
     timeline_title: "7-Day Forecast Outlook",
-    timeline_subtitle: "Validated 7-day daily rainfall and day-by-day matrix per block.",
+    timeline_subtitle: "Live daily rainfall and day-by-day matrix for the selected block.",
     timeline_horizon: "Forecast Interval",
     timeline_chart_label: "Probabilistic Cumulative Rainfall vs Soil Moisture Depletion Curve",
     th_day: "Day",
@@ -113,7 +115,7 @@ const I18N_DICTIONARY = {
     th_wetdry: "Wet / Dry (≥1 mm)",
 
     // Footer
-    footer_text: "Climate clarity for stronger rural futures in Punjab.",
+    footer_text: "Climate clarity for stronger rural futures.",
     footer_copy: "© 2026 · SIH26086 Hyperlocal Monsoon Intelligence"
   },
 
@@ -124,19 +126,21 @@ const I18N_DICTIONARY = {
     nav_map: "जोखिम मानचित्र",
     nav_timeline: "पूर्वानुमान",
     nav_check_block: "अपना ब्लॉक देखें",
-    live_monitoring: "संगरूर लाइव मॉनिटरिंग",
-    district_name: "संगरूर जिला, पंजाब",
+    live_monitoring: "लाइव मॉनिटरिंग",
+    district_name: "राज्य → जिला → ब्लॉक चुनें · लाइव ECMWF IFS आउटलुक",
+    geo_state: "राज्य",
+    geo_district: "जिला",
 
     // Hero / Landing
     hero_eyebrow: "अति-स्थानीय जलवायु बुद्धिमत्ता",
     hero_title_1: "मानसून को",
     hero_title_em: "आगमन से पहले",
     hero_title_2: "सटीकता से जानें।",
-    hero_desc: "संगरूर के 6 ब्लॉकों के लिए सत्यापित 7-दिवसीय वर्षा पूर्वानुमान, संभाव्य श्रेणियों के साथ।",
+    hero_desc: "आपके चुने गए ब्लॉक के लिए लाइव 16-दिवसीय ECMWF IFS वर्षा पूर्वानुमान, 17–30 दिवसीय जलवायु आउटलुक सहित।",
     hero_cta: "किसान पोर्टल खोलें",
     hero_secondary_cta: "जोखिम नक्शा देखें",
     hero_badge: "हर खेत, हर मौसम के लिए तैयार",
-    hero_card_kicker: "सारथी · संगरूर, पंजाब",
+    hero_card_kicker: "सारथी · लाइव ब्लॉक आउटलुक",
     hero_card_signal: "इस सप्ताह का मानसूनी संकेत",
     hero_card_days: "दिन",
     hero_card_sub: "सूखे की पूर्व चेतावनी",
@@ -147,8 +151,8 @@ const I18N_DICTIONARY = {
     // Stats
     stat_1_val: "7-दिवसीय",
     stat_1_lbl: "सत्यापित वर्षा पूर्वानुमान",
-    stat_2_val: "6",
-    stat_2_lbl: "सत्यापित पूर्वानुमान संकेत",
+    stat_2_val: "D+1–D+16",
+    stat_2_lbl: "चुने गए ब्लॉक हेतु लाइव अवधि",
     stat_3_val: "6 ब्लॉक",
     stat_3_lbl: "सत्यापित भूवन सीमाएँ",
     stat_4_val: "19.54 mm",
@@ -156,19 +160,19 @@ const I18N_DICTIONARY = {
 
     // Feature Cards
     portal_features_title: "सारथी प्लेटफॉर्म का अन्वेषण करें",
-    portal_features_sub: "संगरूर के किसानों और कृषि समुदायों के लिए निर्णय सहायता पोर्टल।",
+    portal_features_sub: "किसानों और कृषि समुदायों के लिए निर्णय सहायता पोर्टल।",
     card_farmer_title: "किसान परामर्श पोर्टल",
     card_farmer_desc: "व्यक्तिगत बुवाई निर्णय, 4-स्तंभ जोखिम विश्लेषण और मिट्टी की नमी का मीटर।",
     card_map_title: "ब्लॉक-स्तरीय दृष्टिकोण मानचित्र",
-    card_map_desc: "7-दिवसीय वर्षा श्रेणियों सहित छह सत्यापित संगरूर ब्लॉकों का इंटरएक्टिव मानचित्र।",
+    card_map_desc: "संगरूर बहुभुजों और चुने गए ब्लॉक के लिए लाइव वर्षा श्रेणियों वाला इंटरएक्टिव मानचित्र।",
     card_timeline_title: "7-दिवसीय पूर्वानुमान",
-    card_timeline_desc: "प्रति ब्लॉक सत्यापित दैनिक वर्षा, संभावनाएँ और 7-दिवसीय तालिका।",
+    card_timeline_desc: "चुने गए ब्लॉक के लिए लाइव दैनिक वर्षा, संभावनाएँ और तालिका।",
 
     // Landing Outlook Section
     outlook_heading: "आपके ब्लॉक का पूर्वानुमान",
     outlook_title_1: "एक चयन।",
     outlook_title_em: "स्पष्ट निर्णय।",
-    outlook_desc: "संगरूर में अपना ब्लॉक चुनें। सारथी संभावनाओं सहित सत्यापित 7-दिवसीय वर्षा पूर्वानुमान दिखाता है।",
+    outlook_desc: "राज्य → जिला → ब्लॉक चुनें। सारथी 3/7/15-दिवसीय योग सहित लाइव ECMWF IFS वर्षा पूर्वानुमान दिखाता है।",
     choose_block: "अपना ब्लॉक चुनें",
     latest_block_analysis: "नवीनतम ब्लॉक विश्लेषण",
     rain_7d: "7-दिवसीय कुल वर्षा",
@@ -181,7 +185,7 @@ const I18N_DICTIONARY = {
 
     // Farmer Portal
     farmer_title: "किसान परामर्श पोर्टल",
-    farmer_subtitle: "संगरूर के किसानों के लिए अति-स्थानीय बुवाई निर्णय और नमी टेलीमेट्री।",
+    farmer_subtitle: "आपके चुने गए ब्लॉक के लिए अति-स्थानीय बुवाई निर्णय।",
     farm_profile: "खेत की प्रोफाइल",
     lbl_block: "ब्लॉक",
     lbl_panchayat: "पंचायत",
@@ -204,16 +208,16 @@ const I18N_DICTIONARY = {
 
     // Map
     map_title: "ब्लॉक-स्तरीय दृष्टिकोण मानचित्र",
-    map_subtitle: "छह सत्यापित संगरूर ब्लॉकों का इंटरएक्टिव मानचित्र।",
+    map_subtitle: "लाइव वर्षा श्रेणियों वाला इंटरएक्टिव ब्लॉक मानचित्र।",
     map_filter_block: "ब्लॉक के अनुसार फ़िल्टर करें",
     map_filter_risk: "श्रेणी अनुसार फ़िल्टर करें",
-    map_all_blocks: "सभी 6 ब्लॉक",
+    map_all_blocks: "सभी ब्लॉक",
     map_all_risks: "सभी श्रेणियाँ",
     map_panchayats_active: "निगरानी में पंचायतें",
 
     // Timeline / Forecast
     timeline_title: "7-दिवसीय मौसम पूर्वानुमान",
-    timeline_subtitle: "प्रति ब्लॉक सत्यापित 7-दिवसीय वर्षा और दैनिक तालिका।",
+    timeline_subtitle: "चुने गए ब्लॉक के लिए लाइव दैनिक वर्षा और तालिका।",
     timeline_horizon: "पूर्वानुमान अवधि",
     timeline_chart_label: "संभाव्य संचयी वर्षा बनाम मिट्टी की नमी ह्रास वक्र",
     th_day: "दिन",
@@ -225,7 +229,7 @@ const I18N_DICTIONARY = {
     th_wetdry: "गीला / सूखा (≥1 मिमी)",
 
     // Footer
-    footer_text: "पंजाब में मजबूत ग्रामीण भविष्य के लिए सटीक मौसम बुद्धिमत्ता।",
+    footer_text: "मजबूत ग्रामीण भविष्य के लिए सटीक मौसम बुद्धिमत्ता।",
     footer_copy: "© 2026 · SIH26086 अति-स्थानीय मानसूनी बुद्धिमत्ता प्रणाली"
   },
 
@@ -236,19 +240,21 @@ const I18N_DICTIONARY = {
     nav_map: "ਜੋਖਮ ਨਕਸ਼ਾ",
     nav_timeline: "ਮੌਸਮ ਭਵਿੱਖਬਾਣੀ",
     nav_check_block: "ਆਪਣਾ ਬਲਾਕ ਵੇਖੋ",
-    live_monitoring: "ਸੰਗਰੂਰ ਲਾਈਵ ਨਿਗਰਾਨੀ",
-    district_name: "ਜ਼ਿਲ੍ਹਾ ਸੰਗਰੂਰ, ਪੰਜਾਬ",
+    live_monitoring: "ਲਾਈਵ ਨਿਗਰਾਨੀ",
+    district_name: "ਰਾਜ → ਜ਼ਿਲ੍ਹਾ → ਬਲਾਕ ਚੁਣੋ · ਲਾਈਵ ECMWF IFS ਆਉਟਲੁੱਕ",
+    geo_state: "ਰਾਜ",
+    geo_district: "ਜ਼ਿਲ੍ਹਾ",
 
     // Hero / Landing
     hero_eyebrow: "ਹਾਈਪਰਲੋਕਲ ਮੌਸਮੀ ਸੂਝ-ਬੂਝ",
     hero_title_1: "ਮੌਨਸੂਨ ਨੂੰ",
     hero_title_em: "ਆਉਣ ਤੋਂ ਪਹਿਲਾਂ",
     hero_title_2: "ਚੰਗੀ ਤਰ੍ਹਾਂ ਜਾਣੋ।",
-    hero_desc: "ਸੰਗਰੂਰ ਦੇ 6 ਬਲਾਕਾਂ ਲਈ ਪ੍ਰਮਾਣਿਤ 7-ਦਿਨਾਂ ਮੀਂਹ ਦਾ ਅਨੁਮਾਨ, ਸੰਭਾਵਨਾ ਸ਼੍ਰੇਣੀਆਂ ਸਮੇਤ।",
+    hero_desc: "ਤੁਹਾਡੇ ਚੁਣੇ ਬਲਾਕ ਲਈ ਲਾਈਵ 16-ਦਿਨਾਂ ECMWF IFS ਮੀਂਹ ਦਾ ਅਨੁਮਾਨ, 17–30 ਦਿਨਾਂ ਜਲਵਾਯੂ ਆਉਟਲੁੱਕ ਸਮੇਤ।",
     hero_cta: "ਕਿਸਾਨ ਪੋਰਟਲ ਖੋਲ੍ਹੋ",
     hero_secondary_cta: "ਜੋਖਮ ਨਕਸ਼ਾ ਵੇਖੋ",
     hero_badge: "ਹਰ ਖੇਤ, ਹਰ ਮੌਸਮ ਲਈ ਤਿਆਰ",
-    hero_card_kicker: "ਸਾਰਥੀ · ਸੰਗਰੂਰ, ਪੰਜਾਬ",
+    hero_card_kicker: "ਸਾਰਥੀ · ਲਾਈਵ ਬਲਾਕ ਆਉਟਲੁੱਕ",
     hero_card_signal: "ਇਸ ਹਫ਼ਤੇ ਦਾ ਮੌਨਸੂਨੀ ਸੰਕੇਤ",
     hero_card_days: "ਦਿਨ",
     hero_card_sub: "ਸੋਕੇ ਦੀ ਅਗੇਤੀ ਚੇਤਾਵਨੀ",
@@ -259,8 +265,8 @@ const I18N_DICTIONARY = {
     // Stats
     stat_1_val: "7-ਦਿਨਾਂ",
     stat_1_lbl: "ਪ੍ਰਮਾਣਿਤ ਮੀਂਹ ਅਨੁਮਾਨ",
-    stat_2_val: "6",
-    stat_2_lbl: "ਪ੍ਰਮਾਣਿਤ ਅਨੁਮਾਨ ਸੰਕੇਤ",
+    stat_2_val: "D+1–D+16",
+    stat_2_lbl: "ਚੁਣੇ ਬਲਾਕ ਲਈ ਲਾਈਵ ਮਿਆਦ",
     stat_3_val: "6 ਬਲਾਕ",
     stat_3_lbl: "ਪ੍ਰਮਾਣਿਤ ਭੁਵਨ ਹੱਦਾਂ",
     stat_4_val: "19.54 mm",
@@ -268,19 +274,19 @@ const I18N_DICTIONARY = {
 
     // Feature Cards
     portal_features_title: "ਸਾਰਥੀ ਪਲੇਟਫਾਰਮ ਦੀਆਂ ਸੇਵਾਵਾਂ",
-    portal_features_sub: "ਸੰਗਰੂਰ ਦੇ ਕਿਸਾਨਾਂ ਅਤੇ ਖੇਤੀਬਾੜੀ ਲਈ ਵਿਸ਼ੇਸ਼ ਪੋਰਟਲ।",
+    portal_features_sub: "ਕਿਸਾਨਾਂ ਅਤੇ ਖੇਤੀਬਾੜੀ ਲਈ ਫ਼ੈਸਲਾ-ਸਹਾਇਤਾ ਪੋਰਟਲ।",
     card_farmer_title: "ਕਿਸਾਨ ਸਲਾਹਕਾਰ ਪੋਰਟਲ",
     card_farmer_desc: "ਖੇਤ ਮੁਤਾਬਕ ਬੀਜਾਈ ਦੇ ਫ਼ੈਸਲੇ, 4-ਥੰਮ੍ਹ ਜੋਖਮ ਵੇਰਵੇ ਅਤੇ ਜ਼ਮੀਨੀ ਨਮੀ ਦਾ ਮੀਟਰ।",
     card_map_title: "ਬਲਾਕ ਪੱਧਰੀ ਨਕਸ਼ਾ",
-    card_map_desc: "7-ਦਿਨਾਂ ਮੀਂਹ ਸ਼੍ਰੇਣੀਆਂ ਸਮੇਤ ਛੇ ਪ੍ਰਮਾਣਿਤ ਸੰਗਰੂਰ ਬਲਾਕਾਂ ਦਾ ਇੰਟਰਐਕਟਿਵ ਨਕਸ਼ਾ।",
+    card_map_desc: "ਸੰਗਰੂਰ ਬਹੁਭੁਜਾਂ ਅਤੇ ਚੁਣੇ ਬਲਾਕ ਲਈ ਲਾਈਵ ਮੀਂਹ ਸ਼੍ਰੇਣੀਆਂ ਵਾਲਾ ਇੰਟਰਐਕਟਿਵ ਨਕਸ਼ਾ।",
     card_timeline_title: "7-ਦਿਨਾਂ ਮੌਸਮ ਅਨੁਮਾਨ",
-    card_timeline_desc: "ਪ੍ਰਤੀ ਬਲਾਕ ਪ੍ਰਮਾਣਿਤ ਰੋਜ਼ਾਨਾ ਮੀਂਹ, ਸੰਭਾਵਨਾਵਾਂ ਅਤੇ 7-ਦਿਨਾਂ ਸਾਰਣੀ।",
+    card_timeline_desc: "ਚੁਣੇ ਬਲਾਕ ਲਈ ਲਾਈਵ ਰੋਜ਼ਾਨਾ ਮੀਂਹ, ਸੰਭਾਵਨਾਵਾਂ ਅਤੇ ਸਾਰਣੀ।",
 
     // Landing Outlook Section
     outlook_heading: "ਤੁਹਾਡੇ ਬਲਾਕ ਦਾ ਮੌਸਮ ਹਾਲ",
     outlook_title_1: "ਇੱਕ ਚੋਣ।",
     outlook_title_em: "ਸਪੱਸ਼ਟ ਫ਼ੈਸਲਾ।",
-    outlook_desc: "ਸੰਗਰੂਰ ਵਿੱਚ ਆਪਣਾ ਬਲਾਕ ਚੁਣੋ। ਸਾਰਥੀ ਸੰਭਾਵਨਾਵਾਂ ਸਮੇਤ ਪ੍ਰਮਾਣਿਤ 7-ਦਿਨਾਂ ਮੀਂਹ ਦਾ ਅਨੁਮਾਨ ਦਿਖਾਉਂਦਾ ਹੈ।",
+    outlook_desc: "ਰਾਜ → ਜ਼ਿਲ੍ਹਾ → ਬਲਾਕ ਚੁਣੋ। ਸਾਰਥੀ 3/7/15-ਦਿਨਾਂ ਜੋੜ ਸਮੇਤ ਲਾਈਵ ECMWF IFS ਮੀਂਹ ਦਾ ਅਨੁਮਾਨ ਦਿਖਾਉਂਦਾ ਹੈ।",
     choose_block: "ਆਪਣਾ ਬਲਾਕ ਚੁਣੋ",
     latest_block_analysis: "ਤਾਜ਼ਾ ਬਲਾਕ ਵਿਸ਼ਲੇਸ਼ਣ",
     rain_7d: "7-ਦਿਨਾਂ ਕੁੱਲ ਮੀਂਹ",
@@ -293,7 +299,7 @@ const I18N_DICTIONARY = {
 
     // Farmer Portal
     farmer_title: "ਕਿਸਾਨ ਸਲਾਹਕਾਰ ਪੋਰਟਲ",
-    farmer_subtitle: "ਸੰਗਰੂਰ ਦੇ ਕਿਸਾਨਾਂ ਲਈ ਪੰਚਾਇਤ ਪੱਧਰੀ ਬੀਜਾਈ ਫ਼ੈਸਲੇ ਅਤੇ ਨਮੀ ਮੀਟਰ।",
+    farmer_subtitle: "ਤੁਹਾਡੇ ਚੁਣੇ ਬਲਾਕ ਲਈ ਹਾਈਪਰਲੋਕਲ ਬੀਜਾਈ ਫ਼ੈਸਲੇ।",
     farm_profile: "ਖੇਤ ਦਾ ਵੇਰਵਾ",
     lbl_block: "ਬਲਾਕ",
     lbl_panchayat: "ਪੰਚਾਇਤ",
@@ -316,16 +322,16 @@ const I18N_DICTIONARY = {
 
     // Map
     map_title: "ਬਲਾਕ ਪੱਧਰੀ ਨਕਸ਼ਾ",
-    map_subtitle: "ਛੇ ਪ੍ਰਮਾਣਿਤ ਸੰਗਰੂਰ ਬਲਾਕਾਂ ਦਾ ਇੰਟਰਐਕਟਿਵ ਨਕਸ਼ਾ।",
+    map_subtitle: "ਲਾਈਵ ਮੀਂਹ ਸ਼੍ਰੇਣੀਆਂ ਵਾਲਾ ਇੰਟਰਐਕਟਿਵ ਬਲਾਕ ਨਕਸ਼ਾ।",
     map_filter_block: "ਬਲਾਕ ਅਨੁਸਾਰ ਫ਼ਿਲਟਰ",
     map_filter_risk: "ਸ਼੍ਰੇਣੀ ਅਨੁਸਾਰ ਫ਼ਿਲਟਰ",
-    map_all_blocks: "ਸਾਰੇ 6 ਬਲਾਕ",
+    map_all_blocks: "ਸਾਰੇ ਬਲਾਕ",
     map_all_risks: "ਸਾਰੀਆਂ ਸ਼੍ਰੇਣੀਆਂ",
     map_panchayats_active: "ਨਿਗਰਾਨੀ ਅਧੀਨ ਪੰਚਾਇਤਾਂ",
 
     // Timeline / Forecast
     timeline_title: "7-ਦਿਨਾਂ ਮੌਸਮ ਅਨੁਮਾਨ",
-    timeline_subtitle: "ਪ੍ਰਤੀ ਬਲਾਕ ਪ੍ਰਮਾਣਿਤ 7-ਦਿਨਾਂ ਮੀਂਹ ਅਤੇ ਰੋਜ਼ਾਨਾ ਸਾਰਣੀ।",
+    timeline_subtitle: "ਚੁਣੇ ਬਲਾਕ ਲਈ ਲਾਈਵ ਰੋਜ਼ਾਨਾ ਮੀਂਹ ਅਤੇ ਸਾਰਣੀ।",
     timeline_horizon: "ਅਨੁਮਾਨ ਸਮਾਂ",
     timeline_chart_label: "ਸੰਭਾਵੀ ਮੀਂਹ ਬਨਾਮ ਮਿੱਟੀ ਨਮੀ ਗਿਰਾਵਟ ਗ੍ਰਾਫ਼",
     th_day: "ਦਿਨ",
@@ -337,7 +343,7 @@ const I18N_DICTIONARY = {
     th_wetdry: "ਗਿੱਲਾ / ਸੁੱਕਾ (≥1 ਮਿਮੀ)",
 
     // Footer
-    footer_text: "ਪੰਜਾਬ ਦੇ ਖੇਤੀਬਾੜੀ ਭਵਿੱਖ ਲਈ ਸਟੀਕ ਅਤੇ ਭਰੋਸੇਯੋਗ ਮੌਸਮੀ ਜਾਣਕਾਰੀ।",
+    footer_text: "ਖੇਤੀਬਾੜੀ ਭਵਿੱਖ ਲਈ ਸਟੀਕ ਮੌਸਮੀ ਜਾਣਕਾਰੀ।",
     footer_copy: "© 2026 · SIH26086 ਹਾਈਪਰਲੋਕਲ ਮੌਨਸੂਨ ਸੂਚਨਾ ਪ੍ਰਣਾਲੀ"
   }
 };

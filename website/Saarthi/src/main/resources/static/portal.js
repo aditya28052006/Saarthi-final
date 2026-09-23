@@ -1,7 +1,11 @@
 /**
- * SAARTHI Decision Platform Logic (real-forecast integration).
- * Vanilla JS VIEW over Spring Boot REST APIs backed by the validated
- * NB01–NB06 pipeline (Raw CHIRPS-GEFS, 6 legacy Bhuvan blocks, 7-day horizon).
+ * SAARTHI Decision Platform Logic (live-forecast integration).
+ * Vanilla JS VIEW over Spring Boot REST APIs backed by the LIVE
+ * Open-Meteo/ECMWF-IFS feed (6 Sangrur blocks, D+1..D+16), with the
+ * 17-30 day climatological outlook kept strictly separate.
+ * Observed rainfall (CHIRPS) is OPTIONAL display context only: when
+ * unavailable the UI reports "Observed rainfall context unavailable" and
+ * the live forecast keeps working.
  * No forecasting is computed here. No synthetic fallback: API failure shows
  * an explicit error message.
  */
@@ -14,7 +18,7 @@ if (!['farmer', 'map', 'timeline'].includes(activeRoute)) {
 let currentFarmerData = null;
 let leafletMapInstance = null;
 let mapGeoLayer = null;
-let blockForecastCache = {};   // block_name -> /api/forecast/{id} payload
+let blockForecastCache = {};   // block_name -> /api/weather/forecast payload
 let blocksMetaCache = [];      // [{block_id, block_name, ...}]
 let latestCache = null;
 
@@ -70,6 +74,30 @@ function paintStaticBanner(id, issueDate, validFrom, validTo) {
   el.style.border = f.stale ? '1px solid #e0a08e' : '1px solid #b9d2bd';
 }
 
+// Freshness banner for the LIVE contract (/api/weather/forecast): the server
+// decides staleness (cache age vs TTL); the UI only renders it honestly.
+function paintLiveBanner(id, liveEnvelope) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const stale = !!(liveEnvelope && liveEnvelope.stale);
+  const label = `${liveEnvelope.provider || 'Open-Meteo'} / ${liveEnvelope.model || 'ECMWF IFS'} · issued ${liveEnvelope.issue_date} · retrieved ${liveEnvelope.retrieved_at}`
+    + (stale ? ' · STALE — may be outdated' : ' · fresh');
+  el.textContent = label;
+  el.style.background = stale ? '#fbe3dc' : '#e4efe0';
+  el.style.color = stale ? '#a33' : '#3c6e47';
+  el.style.border = stale ? '1px solid #e0a08e' : '1px solid #b9d2bd';
+}
+
+// Live rain category for map colouring: from the 7-day cumulative window of
+// the live feed (NOT the frozen training-threshold categories).
+function liveCategoryOf(blockName) {
+  const f = blockForecastCache[blockName];
+  if (!f || !f.rain_7d && f.rain_7d !== 0) return 'nodata';
+  if (f.rain_7d < 10) return 'LOW';
+  if (f.rain_7d > 35) return 'HIGH';
+  return 'NORMAL';
+}
+
 // Injects (or updates) a freshness banner as the first child of container.
 function renderFreshnessBanner(container, issueDate, validFrom, validTo) {
   if (!container) return;
@@ -100,9 +128,9 @@ const PAGE_METADATA = {
   map: {
     title: { en: 'Block-scale <em>outlook map.</em>', hi: '<em>ब्लॉक मानचित्र।</em>', pa: '<em>ਬਲਾਕ ਨਕਸ਼ਾ।</em>' },
     intro: {
-      en: 'Interactive map of the six validated Sangrur blocks, colored by 7-day rainfall category.',
-      hi: 'छह सत्यापित संगरूर ब्लॉकों का इंटरएक्टिव मानचित्र।',
-      pa: 'ਛੇ ਪ੍ਰਮਾਣਿਤ ਸੰਗਰੂਰ ਬਲਾਕਾਂ ਦਾ ਇੰਟਰਐਕਟਿਵ ਨਕਸ਼ਾ।'
+      en: 'Sangrur polygon blocks colored by live rainfall, plus a marker for any selected block.',
+      hi: 'लाइव वर्षा के अनुसार संगरूर बहुभुज ब्लॉक, तथा चुने गए ब्लॉक हेतु मार्कर।',
+      pa: 'ਲਾਈਵ ਮੀਂਹ ਅਨੁਸਾਰ ਸੰਗਰੂਰ ਬਹੁਭੁਜ ਬਲਾਕ, ਅਤੇ ਚੁਣੇ ਬਲਾਕ ਲਈ ਮਾਰਕਰ।'
     }
   },
   timeline: {
@@ -163,27 +191,56 @@ async function populatePanchayats(block) {
   const select = document.querySelector('#form-panchayat');
   if (!select) return;
   let list = PANCHAYATS[block] || [];
+  let apiOk = false;
   try {
     const res = await fetch(`/api/panchayats?block=${encodeURIComponent(block)}`);
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data.panchayats) && data.panchayats.length) list = data.panchayats;
+      if (Array.isArray(data.panchayats) && data.panchayats.length) {
+        list = data.panchayats;
+        apiOk = true;
+      }
+    } else if (res.status === 404) {
+      list = []; // non-Sangrur block: no panchayat list, block-level only
+      apiOk = true;
     }
   } catch (err) {
     console.warn('Panchayat API unavailable, using bundled list:', err);
   }
-  select.innerHTML = list.map((p) => `<option value="${p}">${p}</option>`).join('');
+  if (!list.length) {
+    select.innerHTML = `<option value="">Block-level weather (panchayat lists cover Sangrur blocks only)</option>`;
+  } else {
+    select.innerHTML = list.map((p) => `<option value="${p}">${p}</option>`).join('');
+  }
+  const note = document.querySelector('#form-location-note');
+  if (note) {
+    const sel = farmerSelection;
+    note.textContent = sel
+      ? `${SaarthiGeo.locationLabel(sel)} · weather served at block level (no fabricated panchayat resolution)`
+      : '';
+  }
+  return apiOk || list.length > 0;
 }
 
+// Currently selected registry block on the farmer route (null until chosen).
+let farmerSelection = null;
+
 async function computeFarmerAdvisory() {
-  const block = document.querySelector('#form-block')?.value || 'Sunam';
+  const sel = farmerSelection;
   const panchayat = document.querySelector('#form-panchayat')?.value || '';
   const crop = document.querySelector('#form-crop')?.value || 'Paddy (PR-126)';
   const soil = document.querySelector('#form-soil')?.value || 'Clay Loam';
   const sowingDate = document.querySelector('#form-date')?.value || '';
   const irrigation = document.querySelector('#form-irrigation')?.value || 'Canals';
 
-  const payload = { block, panchayat, crop, soil, sowing_date: sowingDate, irrigation };
+  if (!sel) {
+    apiError('#decision-explanation', 'Select State → District → Block to compute the advisory.');
+    return;
+  }
+  const payload = {
+    block: sel.block_name, panchayat, crop, soil,
+    sowing_date: sowingDate, irrigation,
+  };
 
   try {
     const res = await fetch('/api/farmer-analysis', {
@@ -191,111 +248,100 @@ async function computeFarmerAdvisory() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    if (!res.ok) {
+    if (res.ok) {
+      const data = await res.json();
+      currentFarmerData = data;
+      renderFarmerAdvisoryView(data);
+      return;
+    }
+    // Non-legacy blocks 404 here (advisory engine covers Sangrur polygons):
+    // fall through to the generic block-level view, never another block.
+    if (res.status !== 404 && res.status !== 503) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || `HTTP ${res.status}`);
     }
-    const data = await res.json();
-    currentFarmerData = data;
-    renderFarmerAdvisoryView(data);
   } catch (err) {
     console.error('Farmer analysis failed:', err);
+    apiError('#decision-explanation', 'Live advisory data is currently unavailable. Please try again.');
+    return;
+  }
+  // Generic path: live centroid weather + honest subset, no invented agronomy.
+  try {
+    const { envelope } = await SaarthiGeo.fetchBlockForecast(sel);
+    currentFarmerData = null;
+    renderGenericAdvisoryView(sel, envelope, { crop, irrigation, sowingDate });
+  } catch (err) {
+    console.error('Generic advisory failed:', err);
     apiError('#decision-explanation', 'Live advisory data is currently unavailable. Please try again.');
   }
 }
 
-function renderFarmerAdvisoryView(data) {
-  if (!data || !data.outputs) return;
-  const out = data.outputs;
+/**
+ * Block-level advisory for non-Sangrur registry blocks: location, live
+ * weather and soil shown factually; crop-stage/risk sections are marked as
+ * Sangrur-polygon-only instead of being invented.
+ */
+function renderGenericAdvisoryView(sel, env, inputs) {
   const lang = localStorage.getItem('saarthi_lang') || 'en';
+  const noData = '<span style="color:#a33;">No data</span>';
+  const b = (env && env.block) || {};
+  const label = SaarthiGeo.locationLabel(sel);
+  const days = b.days || [];
+  const rain7 = b.cum_7d_mm && b.cum_7d_mm.available ? b.cum_7d_mm.rainfall_mm : null;
+  const et0 = b.et0_7d_mm && b.et0_7d_mm.available ? b.et0_7d_mm.rainfall_mm : null;
+  const wet = days.filter((d) => (d.rainfall_mm || 0) >= 1).length;
+  const heavy = days.reduce((a, d) => ((d.rainfall_mm || 0) > (a.rainfall_mm || 0) ? d : a), days[0] || {});
+  const sm = b.soil_moisture_0_to_7cm_pct;
+  const smv = sm && sm.available ? sm.value : null;
+  const soilLine = env.soil && env.soil.available && env.soil.line
+    ? env.soil.line
+    : 'Soil data unavailable for this block';
 
+  const set = (id, text) => { const el = document.querySelector(id); if (el) el.textContent = text; };
+  const setHtml = (id, html) => { const el = document.querySelector(id); if (el) el.innerHTML = html; };
+  set('#decision-headline', `${inputs.crop} — ${label}`);
+  set('#decision-confidence', `${env.provider} / ${env.model} · issued ${env.issue_date} · block-level forecast`);
+  set('#decision-target-panchayat', label);
+  set('#decision-explanation',
+    `Weather is served at block level for ${label} (no fabricated panchayat resolution). ` +
+    `7-day rainfall ${rain7 != null ? rain7 + ' mm' : 'No data'}, ` +
+    `${wet} wet days (≥1 mm) in the 16-day horizon. ` +
+    `Crop-stage and dry-spell risk sections are computed for Sangrur polygon blocks; ` +
+    `the live weather and soil below cover ${sel.block_name}.`);
   const tagEl = document.querySelector('#decision-tag');
-  if (tagEl) {
-    tagEl.textContent = out.decision_tag;
-    tagEl.className = `decision-tag ${out.decision_tone}`;
-  }
-
-  const winEl = document.querySelector('#decision-window');
-  if (winEl) winEl.textContent = out.recommended_window;
-
-  const cropName = (data.inputs && data.inputs.crop) || 'Paddy (PR-126)';
-  let headline = `7-day outlook for ${cropName}.`;
-  if (out.decision_tone === 'wait') {
-    headline = `Delay sowing: elevated dry risk for ${cropName}.`;
-  } else if (out.decision_tone === 'review') {
-    headline = `Exercise caution: verify soil moisture before sowing ${cropName}.`;
-  }
-  const hlEl = document.querySelector('#decision-headline');
-  if (hlEl) hlEl.textContent = headline;
-
-  const expEl = document.querySelector('#decision-explanation');
-  if (expEl && out.explanation) expEl.textContent = out.explanation[lang] || out.explanation.en;
-
-  const probEl = document.querySelector('#decision-prob');
-  if (probEl) {
-    const cat = out.rainfall_category ? ` · ${out.rainfall_category} outlook (${out.forecast_7d_total_rainfall_mm} mm / 7d)` : '';
-    probEl.textContent = `${out.dry_spell_probability}%${cat}`;
-  }
-
-  const confEl = document.querySelector('#decision-confidence');
-  if (confEl) confEl.textContent = out.model_source || 'Raw CHIRPS-GEFS';
-
-  const targetEl = document.querySelector('#decision-target-panchayat');
-  if (targetEl && data.inputs) targetEl.textContent = `${data.inputs.panchayat}, ${data.inputs.block}`;
-
-  // 4 Risk Pillars
-  const p = out.fourPillars || out.four_pillars || {};
-  const wRisk = p.weather_risk || 'Low';
-  const sRisk = p.soil_moisture_risk || 'Low';
-  const cRisk = p.crop_vulnerability_risk || 'Moderate';
-
-  const pWeather = document.querySelector('#pillar-weather-val');
-  if (pWeather) {
-    pWeather.textContent = wRisk;
-    pWeather.style.color = wRisk === 'High' ? 'var(--coral)' : wRisk === 'Moderate' ? 'var(--gold)' : 'var(--moss)';
-  }
-
-  const pSoil = document.querySelector('#pillar-soil-val');
-  if (pSoil) {
-    pSoil.textContent = sRisk;
-    pSoil.style.color = sRisk === 'High' ? 'var(--coral)' : sRisk === 'Moderate' ? 'var(--gold)' : 'var(--moss)';
-  }
-
-  const pCrop = document.querySelector('#pillar-crop-val');
-  if (pCrop) {
-    pCrop.textContent = cRisk;
-    pCrop.style.color = cRisk === 'High' ? 'var(--coral)' : cRisk === 'Moderate' ? 'var(--gold)' : 'var(--moss)';
-  }
-
-  const pDry = document.querySelector('#pillar-dry-val');
-  if (pDry) {
-    pDry.textContent = `${out.dry_spell_probability}%`;
-    pDry.style.color = out.dry_spell_probability >= 60 ? 'var(--coral)' : out.dry_spell_probability >= 30 ? 'var(--gold)' : 'var(--moss)';
-  }
-
-  // Root-Zone Moisture Gauge Dial
-  const moisture = Number(out.root_zone_soil_moisture_pct || 38);
+  if (tagEl) { tagEl.textContent = 'Block-level outlook'; tagEl.className = 'decision-tag review'; }
+  set('#decision-window', 'Stage-specific window: Sangrur polygon blocks');
+  set('#decision-prob', '');
+  setHtml('#decision-prob',
+    `7-day rain: <b>${rain7 != null ? rain7 + ' mm' : 'No data'}</b>` +
+    ` · ET0 7-day: <b>${et0 != null ? et0 + ' mm' : 'No data'}</b>`);
+  set('#gauge-status', smv == null ? 'Forecast surface soil moisture: No data' : `Forecast surface soil moisture: ${smv} m³/m³ (ECMWF IFS, 0–7 cm — not a measurement)`);
   const gaugePct = document.querySelector('#gauge-percent');
-  if (gaugePct) gaugePct.textContent = `${moisture.toFixed(0)}%`;
-
-  const gaugeDial = document.querySelector('#root-gauge-dial');
-  if (gaugeDial) {
-    gaugeDial.style.background = `conic-gradient(#abc87d 0% ${moisture}%, #e6ece0 ${moisture}% 100%)`;
-  }
-  let statusText = 'Adequate Moisture';
-  if (moisture < 25) statusText = 'Critical Deficit (prototype dry-spell heuristic — not an IMD break forecast)';
-  else if (moisture < 35) statusText = 'Moderate Moisture';
-  else if (moisture > 48) statusText = 'High / Saturated';
-  const gStatus = document.querySelector('#gauge-status');
-  if (gStatus) gStatus.textContent = statusText;
-
-  // WhatsApp Share button binding
+  if (gaugePct) gaugePct.textContent = smv == null ? '—' : `${Number(smv).toFixed(2)} m³/m³`;
+  set('#pillar-weather-val', rain7 == null ? 'No data' : `${rain7} mm / 7d`);
+  set('#pillar-soil-val', smv == null ? 'No data' : 'Forecast (see gauge)');
+  set('#pillar-crop-val', 'Advisory: Sangrur polygons');
+  set('#pillar-dry-val', `${wet} wet days / 16d`);
+  setHtml('#advisory-actions',
+    `<ul><li>Heaviest forecast day: ${heavy && heavy.date ? `${heavy.rainfall_mm} mm (${heavy.date})` : 'No data'}.</li>` +
+    `<li>${soilLine}.</li>` +
+    `<li>Irrigation input on file: ${inputs.irrigation}; sowing date on file: ${inputs.sowingDate || 'not set'}. Stage-specific guidance is computed for Sangrur polygon blocks.</li></ul>`);
+  setHtml('#advisory-sources',
+    `<ul><li>Open-Meteo API delivering ECMWF IFS — GET /api/weather/forecast/by-coords (single-point centroid, not polygon-averaged)</li>` +
+    `<li>${soilLine}</li></ul>`);
   const shareBtn = document.querySelector('#share-whatsapp-btn');
-  if (shareBtn && out.whatsapp_share) {
+  if (shareBtn) {
+    const lines = [
+      `🌾 *SAARTHI KISAN ADVISORY*`,
+      `📍 ${label}`,
+      `🌱 ${inputs.crop}`,
+      `🌧 7-day rain: ${rain7 != null ? rain7 + ' mm' : 'No data'}`,
+      `💧 ${soilLine}`,
+      `— SAARTHI (ECMWF IFS live forecast, block level)`,
+    ];
     shareBtn.onclick = async () => {
-      const shareText = out.whatsapp_share[lang] || out.whatsapp_share.en;
       try {
-        await navigator.clipboard.writeText(shareText);
+        await navigator.clipboard.writeText(lines.join('\n'));
         showToast(getTranslation('btn_copied', lang));
       } catch (e) {
         showToast('Advisory text copied!');
@@ -304,13 +350,215 @@ function renderFarmerAdvisoryView(data) {
   }
 }
 
+function renderFarmerAdvisoryView(data) {
+  if (!data || !data.location) return;
+  const lang = localStorage.getItem('saarthi_lang') || 'en';
+  const noData = '<span style="color:#a33;">No data</span>';
+  const v = (x) => (x === null || x === undefined ? noData : x);
+
+  // Header: crop + block + provenance (section 1)
+  const cropName = (data.inputs && data.inputs.crop) || '';
+  const hlEl = document.querySelector('#decision-headline');
+  if (hlEl) hlEl.textContent = `${cropName} — ${data.location.panchayat_label || ''} (${data.location.block} block)`;
+
+  const confEl = document.querySelector('#decision-confidence');
+  if (confEl) confEl.textContent =
+    `${data.location.provider} / ${data.location.model} · issued ${data.location.forecast_issue_date} · block-level forecast`;
+
+  const targetEl = document.querySelector('#decision-target-panchayat');
+  if (targetEl) targetEl.textContent = data.location.panchayat_label || '';
+
+  const expEl = document.querySelector('#decision-explanation');
+  if (expEl) expEl.textContent =
+    (data.location.resolution_note || '') + ' ' +
+    ((data.advisory && data.advisory.explanation) || '');
+
+  // Stage (section 3)
+  const st = data.stage || {};
+  const tagEl = document.querySelector('#decision-tag');
+  if (tagEl) {
+    tagEl.textContent = st.available
+      ? `Stage: ${String(st.stage).replace(/_/g, ' ')} (day ${st.days_since_sowing})`
+      : (st.days_since_sowing != null
+        ? `Day ${st.days_since_sowing} — stage not available`
+        : 'Set sowing date for stage guidance');
+    tagEl.className = `decision-tag ${st.available ? 'sow' : 'review'}`;
+  }
+
+  const winEl = document.querySelector('#decision-window');
+  if (winEl) {
+    const w = data.crop && data.crop.sowing_window;
+    winEl.textContent = (data.crop && data.crop.known && w && w.start)
+      ? `Cited sowing window: ${w.start} → ${w.end || '-'}`
+      : 'Sowing window not available for this crop';
+  }
+
+  // Weather snapshot (section 4)
+  const wx = data.weather || {};
+  const probEl = document.querySelector('#decision-prob');
+  if (probEl) {
+    probEl.innerHTML =
+      `7-day rain: <b>${v(wx.rain_7d_mm != null ? wx.rain_7d_mm + ' mm' : null)}</b>` +
+      ` · ET0 7-day: <b>${v(wx.et0_7d_mm != null ? wx.et0_7d_mm + ' mm' : null)}</b>`;
+  }
+
+  // Soil (section 5) — forecast surface moisture, honest units
+  const soil = data.soil || {};
+  const gaugePct = document.querySelector('#gauge-percent');
+  const gaugeDial = document.querySelector('#root-gauge-dial');
+  const gStatus = document.querySelector('#gauge-status');
+  const smv = soil.forecast_surface_soil_moisture_vwc;
+  if (gStatus) {
+    gStatus.textContent = smv == null
+      ? 'Forecast surface soil moisture: No data'
+      : `Forecast surface soil moisture: ${smv} m³/m³ (ECMWF IFS, 0–7 cm — not a measurement)`;
+  }
+  if (gaugePct) gaugePct.textContent = smv == null ? '—' : `${smv.toFixed(2)} m³/m³`;
+  if (gaugeDial) {
+    // VWC 0–0.5 mapped to 0–100% dial position for display only.
+    const pct = smv == null ? 0 : Math.max(0, Math.min(100, (smv / 0.5) * 100));
+    gaugeDial.style.background = smv == null
+      ? 'conic-gradient(#c9d2c4 0% 100%)'
+      : `conic-gradient(#abc87d 0% ${pct}%, #e6ece0 ${pct}% 100%)`;
+  }
+
+  // Risk pillars (section 7) — worded watches, never fake percentages
+  const risks = data.risks || {};
+  const flags = risks.flags || [];
+  const pWeather = document.querySelector('#pillar-weather-val');
+  if (pWeather) {
+    const heavy = flags.includes('heavy_rain_watch');
+    const dry = flags.includes('dry_spell_watch');
+    pWeather.textContent = heavy ? 'Heavy rain watch' : dry ? 'Dry-spell watch' : 'No watch flags';
+    pWeather.style.color = heavy || dry ? 'var(--gold)' : 'var(--moss)';
+  }
+  const pSoil = document.querySelector('#pillar-soil-val');
+  if (pSoil) {
+    pSoil.textContent = smv == null ? 'No data'
+      : smv < 0.12 ? 'Dry surface (forecast)' : 'Adequate (forecast)';
+    pSoil.style.color = smv != null && smv < 0.12 ? 'var(--coral)' : 'var(--moss)';
+  }
+  const pCrop = document.querySelector('#pillar-crop-val');
+  if (pCrop) {
+    pCrop.textContent = (data.crop && data.crop.water_need_class)
+      ? `Water need: ${String(data.crop.water_need_class).replace(/_/g, ' ')}`
+      : 'Water need: not available';
+    pCrop.style.color = 'var(--moss)';
+  }
+  const pDry = document.querySelector('#pillar-dry-val');
+  if (pDry) {
+    pDry.textContent = flags.includes('dry_spell_watch') ? 'Watch active' : 'No dry-spell signal';
+    pDry.style.color = flags.includes('dry_spell_watch') ? 'var(--coral)' : 'var(--moss)';
+  }
+
+  // Advisory actions (section 8)
+  const advEl = document.querySelector('#advisory-actions');
+  if (advEl) {
+    const actions = (data.advisory && data.advisory.actions) || [];
+    advEl.innerHTML = actions.length
+      ? `<ul>${actions.map((a) => `<li>${a}</li>`).join('')}</ul>`
+      : 'No advisory actions available.';
+  }
+
+  // Sources (section 9)
+  const srcEl = document.querySelector('#advisory-sources');
+  if (srcEl && data.sources) {
+    const items = [].concat(data.sources.weather || [], data.sources.agronomy || [],
+      data.sources.soil ? [data.sources.soil] : []);
+    srcEl.innerHTML = `<ul>${items.map((s) => `<li>${s}</li>`).join('')}</ul>`;
+  }
+
+  // WhatsApp share (plain-text digest of the new sections)
+  const shareBtn = document.querySelector('#share-whatsapp-btn');
+  if (shareBtn) {
+    const lines = [
+      `🌾 *SAARTHI KISAN ADVISORY*`,
+      `📍 ${data.location.panchayat_label} · ${data.location.block} block`,
+      `🌱 ${cropName}${st.available ? ` · ${String(st.stage).replace(/_/g, ' ')}` : ''}`,
+      `🌧 7-day rain: ${wx.rain_7d_mm != null ? wx.rain_7d_mm + ' mm' : 'No data'} · ET0: ${wx.et0_7d_mm != null ? wx.et0_7d_mm + ' mm' : 'No data'}`,
+      `💧 ${smv != null ? `Forecast surface moisture ${smv} m³/m³` : 'Surface moisture: No data'}`,
+      flags.length ? `⚠️ ${flags.map((f) => f.replace(/_/g, ' ')).join(', ')}` : '',
+      ``,
+      `💡 ${(data.advisory && data.advisory.actions || []).map((a) => '• ' + a).join('\n')}`,
+      `— SAARTHI (ECMWF IFS live forecast + PAU/ICAR agronomy)`,
+    ].filter((l) => l !== '');
+    shareBtn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(lines.join('\n'));
+        showToast(getTranslation('btn_copied', lang));
+      } catch (e) {
+        showToast('Advisory text copied!');
+      }
+    };
+  }
+}
+
+// Single-fetch timeline refresh: one live request serves the chart,
+// the 16-day table, the risk card and the W3/W4 panel for a selection.
+let timelineSelection = null;
+
+async function refreshTimeline(sel) {
+  timelineSelection = sel;
+  if (!sel) {
+    loadTimelineForecast(null);
+    loadLiveOutlook(null);
+    loadFieldRisk(null, true, 'Sangrur');
+    loadWeeks34Outlook(null, true, 'Sangrur');
+    return;
+  }
+  try {
+    const pre = await SaarthiGeo.fetchBlockForecast(sel);
+    const canonical = (pre.block && pre.block.block_name) || sel.block_name;
+    await loadTimelineForecast(sel, pre);
+    await loadLiveOutlook(sel, pre);
+    await loadFieldRisk(sel, pre.isLegacy, canonical);
+    await loadWeeks34Outlook(sel, pre.isLegacy, canonical);
+  } catch (err) {
+    console.error('Timeline refresh failed:', err);
+    apiError('#recharts-forecast-canvas', `Live forecast unavailable for ${sel.block_name} (${err.message}). No fallback data is shown.`);
+  }
+}
+
+// -------------------------------------------------------------
+// 2b. SELECTION MARKER (non-polygon registry blocks on the map)
+// -------------------------------------------------------------
+let selectionMarker = null;
+
+async function renderSelectionMarker() {
+  if (!leafletMapInstance) return;
+  const sel = SaarthiGeo.loadSelection();
+  if (selectionMarker) {
+    leafletMapInstance.removeLayer(selectionMarker);
+    selectionMarker = null;
+  }
+  if (!sel || sel.latitude == null) return;
+  // Polygon blocks already render from GeoJSON — no marker needed.
+  if (blockForecastCache[sel.block_name]) return;
+  selectionMarker = L.marker([sel.latitude, sel.longitude]).addTo(leafletMapInstance);
+  selectionMarker.bindPopup(`<div style="font-family: Manrope, sans-serif; font-size: 12px;"><strong>${sel.block_name}</strong><div style="color:#617163;">${sel.district_name}, ${sel.state_name} · centroid (no block boundary compiled)</div><div>Loading live forecast…</div></div>`);
+  try {
+    const { envelope } = await SaarthiGeo.fetchBlockForecast(sel);
+    const b = envelope.block || {};
+    const rain7 = b.cum_7d_mm && b.cum_7d_mm.available ? `${b.cum_7d_mm.rainfall_mm} mm` : 'No data';
+    selectionMarker.setPopupContent(
+      `<div style="font-family: Manrope, sans-serif; font-size: 12px; min-width: 200px;">` +
+      `<strong style="font-size: 14px;">${sel.block_name}</strong>` +
+      `<div style="color:#617163;">${sel.district_name}, ${sel.state_name} · centroid</div>` +
+      `<div style="margin-top:6px;"><b>7-day rain (live IFS):</b> ${rain7}</div>` +
+      `<div><b>Method:</b> single-point centroid (not polygon-averaged)</div></div>`);
+  } catch (err) {
+    selectionMarker.setPopupContent(
+      `<div style="font-family: Manrope, sans-serif; font-size: 12px;"><strong>${sel.block_name}</strong>` +
+      `<div style="color:#a33;">Live forecast unavailable (${err.message})</div></div>`);
+  }
+}
+
 // -------------------------------------------------------------
 // 2. BLOCK-SCALE OUTLOOK MAP (LEAFLET GEOJSON)
 // -------------------------------------------------------------
 
 function categoryOf(blockName) {
-  const f = blockForecastCache[blockName];
-  return (f && f.category) || 'NORMAL';
+  return liveCategoryOf(blockName);
 }
 
 async function initRiskMap() {
@@ -340,21 +588,24 @@ async function initRiskMap() {
   try {
     const [geoRes, fcRes] = await Promise.all([
       fetch('/api/blocks/geojson'),
-      fetch('/api/forecast/latest'),
+      fetch('/api/weather/forecast'),
     ]);
     if (!geoRes.ok || !fcRes.ok) throw new Error(`geojson ${geoRes.status}, forecast ${fcRes.status}`);
     const geo = await geoRes.json();
     const latest = await fcRes.json();
     latestCache = latest;
-    paintStaticBanner('map-freshness-banner', latest.forecast.issue_date, latest.forecast.valid_from, latest.forecast.valid_to);
+    // LIVE contract banner: stale flag comes from the server (cache age), not
+    // any frozen package dates.
+    paintLiveBanner('map-freshness-banner', latest);
     blockForecastCache = {};
-    for (const b of latest.forecast.blocks) {
+    for (const b of (latest.blocks || [])) {
       blockForecastCache[b.block_name] = {
         ...b,
-        prob_low: b.probability.low, prob_normal: b.probability.normal, prob_high: b.probability.high,
+        rain_7d: b.cum_7d_mm && b.cum_7d_mm.available ? b.cum_7d_mm.rainfall_mm : null,
       };
     }
     renderMapPolygons(geo);
+    renderSelectionMarker();
     setTimeout(() => leafletMapInstance.invalidateSize(), 200);
   } catch (err) {
     console.error('Map data failed:', err);
@@ -394,13 +645,12 @@ function renderMapPolygons(geo) {
     onEachFeature: (feature, lyr) => {
       const name = feature.properties.block_name;
       const f = blockForecastCache[name];
-      const ind = f.indicators || {};
       const body = f
-        ? `<div><b>7-day total:</b> ${f.forecast_7d_total_rainfall_mm} mm (${f.category})</div>
-           <div><b>P(LOW/NORMAL/HIGH):</b> ${(f.prob_low * 100).toFixed(0)}% / ${(f.prob_normal * 100).toFixed(0)}% / ${(f.prob_high * 100).toFixed(0)}%</div>
-           <div><b>Wet days:</b> ${ind.wet_days ?? '—'} · <b>Dry days:</b> ${ind.dry_days ?? '—'}</div>
-           <div><b>Heaviest:</b> ${ind.max_daily_rainfall_mm ?? '—'} mm on ${ind.max_daily_rainfall_date ?? '—'}</div>`
-        : `<div>Forecast loading…</div>`;
+        ? `<div><b>7-day rain (live IFS):</b> ${f.rain_7d != null ? f.rain_7d + ' mm' : 'No data'}</div>
+           <div><b>ET0 7-day:</b> ${f.et0_7d_mm && f.et0_7d_mm.available ? f.et0_7d_mm.rainfall_mm + ' mm' : 'No data'}</div>
+           <div><b>Surface soil moisture (D+1):</b> ${f.soil_moisture_0_to_7cm_pct && f.soil_moisture_0_to_7cm_pct.available ? f.soil_moisture_0_to_7cm_pct.value + ' m³/m³' : 'No data'}</div>
+           <div><b>Live category:</b> ${liveCategoryOf(name)}</div>`
+        : `<div>Live forecast loading…</div>`;
       lyr.bindPopup(
         `<div style="font-family: Manrope, sans-serif; font-size: 12px; min-width: 200px;">
           <strong style="font-size: 14px;">${name}</strong>
@@ -425,29 +675,35 @@ function renderMapPolygons(geo) {
 // 3. 7-DAY FORECAST OUTLOOK & MATRIX (TIMELINE)
 // -------------------------------------------------------------
 
-async function loadTimelineForecast(block = 'Sangrur') {
+async function loadTimelineForecast(sel, pre) {
   const titleEl = document.querySelector('#timeline-block-title');
-  if (titleEl) titleEl.textContent = `${block} Block`;
+  const blockName = (sel && sel.block_name) || 'Sangrur';
+  if (titleEl) titleEl.textContent = sel ? SaarthiGeo.locationLabel(sel) : `${blockName} Block`;
+  const placeEl = document.querySelector('#timeline-place');
+  if (placeEl) placeEl.textContent = sel ? `${sel.district_name}, ${sel.state_name}` : 'Select a block';
 
   try {
-    const res = await fetch(`/api/forecast/${encodeURIComponent(block)}`);
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || `HTTP ${res.status}`);
+    // LIVE contract: single source for the timeline chart + matrix (D+1..D+16).
+    // Legacy Sangrur names resolve to the polygon path; all other registry
+    // blocks resolve to their centroid — same render, honest method label.
+    let data = pre && pre.envelope;
+    if (!data) {
+      if (sel) {
+        ({ envelope: data } = await SaarthiGeo.fetchBlockForecast(sel));
+      } else {
+        const res = await fetch(`/api/weather/forecast/${encodeURIComponent(blockName)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        data = await res.json();
+      }
     }
-    const data = await res.json();
-    paintStaticBanner('timeline-freshness-banner', data.issue_date, data.valid_from, data.valid_to);
-    blockForecastCache[data.block_name] = {
-      block_name: data.block_name,
-      forecast_7d_total_rainfall_mm: data.forecast_7d_total_rainfall_mm,
-      category: data.category,
-      prob_low: data.prob_low, prob_normal: data.prob_normal, prob_high: data.prob_high,
-      daily_forecast: data.daily_forecast, indicators: data.indicators,
-    };
-    const matrix = (data.daily_forecast || []).map((d) => ({
-      day: d.day, date: d.date, rainfall_mm: d.rainfall_mm,
+    paintLiveBanner('timeline-freshness-banner', data);
+    const b = data.block || {};
+    blockForecastCache[b.block_name] = { ...b, rain_7d: b.cum_7d_mm && b.cum_7d_mm.available ? b.cum_7d_mm.rainfall_mm : null };
+    const matrix = (b.days || []).map((d) => ({
+      day: d.horizon_day, date: d.date, rainfall_mm: d.rainfall_mm,
     }));
-    renderForecastChart({ block: data.block_name, forecast_matrix: matrix, total: data.forecast_7d_total_rainfall_mm, category: data.category });
+    const total7 = b.cum_7d_mm && b.cum_7d_mm.available ? b.cum_7d_mm.rainfall_mm : null;
+    renderForecastChart({ block: b.block_name, forecast_matrix: matrix, total: total7, category: null });
     renderForecastMatrix(matrix);
   } catch (err) {
     console.error('Timeline forecast failed:', err);
@@ -587,32 +843,51 @@ function renderForecastMatrix(matrix) {
 // Display-only view: no forecasting here, no zero-filling, horizon served
 // honestly (16 days; 16–30 explicitly unavailable).
 
-async function loadLiveOutlook(block = 'Sangrur') {
+async function loadLiveOutlook(sel, pre) {
   const tbody = document.querySelector('#live-matrix-tbody');
   const metaEl = document.querySelector('#live-meta');
   const freshEl = document.querySelector('#live-freshness');
-  const sel = document.querySelector('#live-block-select');
   if (!tbody || !metaEl) return;
-  if (sel && sel.value !== block) sel.value = block;
 
-  tbody.innerHTML = `<tr><td colspan="4">Loading live outlook for ${block}…</td></tr>`;
+  const blockName = (sel && sel.block_name) || 'Sangrur';
+  tbody.innerHTML = `<tr><td colspan="4">Loading live outlook for ${sel ? SaarthiGeo.locationLabel(sel) : blockName}…</td></tr>`;
   metaEl.textContent = 'Live outlook loading…';
 
   try {
-    const res = await fetch(`/api/weather/forecast/${encodeURIComponent(block)}`);
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || `HTTP ${res.status}`);
+    let data;
+    let isLegacy = false;
+    if (pre && pre.envelope) {
+      data = pre.envelope;
+      isLegacy = !!pre.isLegacy;
+    } else if (sel) {
+      const r = await SaarthiGeo.fetchBlockForecast(sel);
+      data = r.envelope;
+      isLegacy = r.isLegacy;
+    } else {
+      const res = await fetch(`/api/weather/forecast/${encodeURIComponent(blockName)}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP ${res.status}`);
+      }
+      data = await res.json();
+      isLegacy = true;
     }
-    const data = await res.json();
     const b = data.block || {};
     const days = b.days || [];
 
     const staleTag = data.stale
       ? ` · STALE${data.stale_warning ? ` — ${data.stale_warning}` : ' — cached forecast served'}` : ' · fresh';
+    const method = b.spatial_method || '';
+    const methodTag = method.includes('single_point_centroid')
+      ? ' · single-point centroid (not polygon-averaged)'
+      : method.includes('multipoint') ? ' · polygon multipoint mean' : '';
     metaEl.textContent =
-      `${b.block_name || block}: ${data.provider || 'Open-Meteo'} / ${data.model || 'ECMWF IFS'} · ` +
-      `issued ${data.issue_date} · ${days.length}-day horizon${staleTag}`;
+      `${b.block_name || blockName}: ${data.provider || 'Open-Meteo'} / ${data.model || 'ECMWF IFS'} · ` +
+      `issued ${data.issue_date} · ${days.length}-day horizon${staleTag}${methodTag}`;
+    if (sel && !isLegacy && data.soil) {
+      metaEl.textContent += data.soil.available && data.soil.line
+        ? ` · Soil: ${data.soil.line}` : ' · Soil data unavailable for this block';
+    }
 
     if (freshEl) {
       freshEl.textContent = data.stale
@@ -656,7 +931,7 @@ async function loadLiveOutlook(block = 'Sangrur') {
 // (never HIGH); stale -> MODERATE; incomplete -> UNAVAILABLE (never LOW).
 // Generic wording only — no crops, no agronomic prescriptions.
 
-async function loadFieldRisk(block = 'Sangrur') {
+async function loadFieldRisk(sel, isLegacy, canonical) {
   const metaEl = document.querySelector('#risk-meta');
   const cardEl = document.querySelector('#risk-card');
   const primEl = document.querySelector('#risk-primary');
@@ -665,18 +940,33 @@ async function loadFieldRisk(block = 'Sangrur') {
   const advEl = document.querySelector('#risk-advisory');
   if (!metaEl || !cardEl) return;
 
-  metaEl.textContent = `Agricultural risk loading for ${block}…`;
-  cardEl.textContent = 'Loading…';
-  if (primEl) primEl.textContent = '';
-  if (evEl) evEl.textContent = '';
-  if (othEl) othEl.textContent = '';
-  if (advEl) advEl.textContent = '';
-
+  const label = sel ? SaarthiGeo.locationLabel(sel) : (canonical || 'Sangrur');
   const paint = (bg, fg, border) => {
     cardEl.style.background = bg;
     cardEl.style.color = fg;
     cardEl.style.border = border;
   };
+  const clearRest = () => {
+    if (primEl) primEl.textContent = '';
+    if (evEl) evEl.textContent = '';
+    if (othEl) othEl.textContent = '';
+    if (advEl) advEl.textContent = '';
+  };
+  if (!isLegacy) {
+    // composite_v1 / FIELD_HIGH are validated on the Sangrur polygon feed.
+    metaEl.textContent = `Agricultural risk for ${label}: served for Sangrur polygon blocks.`;
+    cardEl.textContent = 'UNAVAILABLE for this block — no threshold set outside Sangrur';
+    paint('#eef1ea', '#657566', '1px solid #c9cfc4');
+    clearRest();
+    if (advEl) advEl.textContent = 'The live 16-day rainfall outlook above covers this block; field-work risk scoring is not calibrated here.';
+    return;
+  }
+  const block = canonical || 'Sangrur';
+
+  metaEl.textContent = `Agricultural risk loading for ${block}…`;
+  cardEl.textContent = 'Loading…';
+  clearRest();
+
   const prettyConcern = (c) => (c || '—').replace(/_/g, ' ');
   try {
     const res = await fetch(`/api/risks/${encodeURIComponent(block)}?window=3d`);
@@ -762,12 +1052,22 @@ async function loadFieldRisk(block = 'Sangrur') {
 // normals for reference, never deterministic forecasts. MJO/IOD/ENSO are
 // context only. All honesty states (loading/unavailable/stale/error) explicit.
 
-async function loadWeeks34Outlook(block = 'Sangrur') {
+async function loadWeeks34Outlook(sel, isLegacy, canonical) {
   const tbody = document.querySelector('#w34-matrix-tbody');
   const metaEl = document.querySelector('#w34-meta');
   const freshEl = document.querySelector('#w34-freshness');
   const narrEl = document.querySelector('#w34-narrative');
   if (!tbody || !metaEl) return;
+
+  const label = sel ? SaarthiGeo.locationLabel(sel) : (canonical || 'Sangrur');
+  if (!isLegacy) {
+    // Phase 3B climatology normals exist for Sangrur blocks only.
+    tbody.innerHTML = `<tr><td colspan="5">Extended outlook is served for Sangrur polygon blocks — block climatology is not compiled for ${label}. The live 16-day IFS outlook above is unaffected.</td></tr>`;
+    metaEl.textContent = 'Extended outlook unavailable for this block.';
+    if (narrEl) narrEl.textContent = '';
+    return;
+  }
+  const block = canonical || 'Sangrur';
 
   tbody.innerHTML = `<tr><td colspan="5">Loading extended outlook for ${block}…</td></tr>`;
   metaEl.textContent = 'Extended outlook loading…';
@@ -871,42 +1171,55 @@ document.addEventListener('DOMContentLoaded', () => {
   updateRouteUI();
 
   if (activeRoute === 'farmer') {
-    const blockSelect = document.querySelector('#form-block');
-    if (blockSelect) {
-      populatePanchayats(blockSelect.value);
-      blockSelect.addEventListener('change', (e) => {
-        populatePanchayats(e.target.value);
+    const fState = document.querySelector('#form-state');
+    const fDist = document.querySelector('#form-district');
+    const fBlock = document.querySelector('#form-block');
+    if (fState && fDist && fBlock && typeof SaarthiGeo !== 'undefined') {
+      SaarthiGeo.wireCascade(fState, fDist, fBlock, (sel) => {
+        farmerSelection = sel;
+        updateGeoEyebrow();
+        if (!sel) return; // mid-cascade: wait for a complete selection
+        populatePanchayats(sel.block_name);
         computeFarmerAdvisory();
       });
       document.querySelector('#form-refresh-btn')?.addEventListener('click', computeFarmerAdvisory);
+      ['form-crop', 'form-soil', 'form-date', 'form-irrigation'].forEach((id) => {
+        document.querySelector(`#${id}`)?.addEventListener('change', computeFarmerAdvisory);
+      });
+    } else {
+      computeFarmerAdvisory();
     }
-    computeFarmerAdvisory();
   } else if (activeRoute === 'map') {
     initRiskMap();
   } else if (activeRoute === 'timeline') {
-    loadTimelineForecast('Sangrur');
     loadClimateContext();
-    const liveSelect = document.querySelector('#live-block-select');
-    if (liveSelect) {
-      loadLiveOutlook(liveSelect.value || 'Sangrur');
-      loadFieldRisk(liveSelect.value || 'Sangrur');
-      loadWeeks34Outlook(liveSelect.value || 'Sangrur');
-      liveSelect.addEventListener('change', (e) => {
-        loadLiveOutlook(e.target.value);
-        loadFieldRisk(e.target.value);
-        loadWeeks34Outlook(e.target.value);
+    const tState = document.querySelector('#tl-state');
+    const tDist = document.querySelector('#tl-district');
+    const tBlock = document.querySelector('#live-block-select');
+    if (tState && tDist && tBlock && typeof SaarthiGeo !== 'undefined') {
+      SaarthiGeo.wireCascade(tState, tDist, tBlock, (sel) => {
+        updateGeoEyebrow();
+        if (sel) refreshTimeline(sel);
       });
     } else {
-      loadLiveOutlook('Sangrur');
-      loadFieldRisk('Sangrur');
-      loadWeeks34Outlook('Sangrur');
+      refreshTimeline(null);
     }
   }
 
   window.addEventListener('languageChanged', () => {
     updateRouteUI();
+    updateGeoEyebrow();
     if (activeRoute === 'farmer' && currentFarmerData) {
       renderFarmerAdvisoryView(currentFarmerData);
     }
   });
 });
+
+// Portal header eyebrow follows the persisted selection (block · district,
+// state); falls back to the translated static label when nothing is chosen.
+function updateGeoEyebrow() {
+  const el = document.querySelector('.portal-header .eyebrow span[data-i18n="district_name"]');
+  if (!el) return;
+  const sel = farmerSelection || timelineSelection || SaarthiGeo.loadSelection();
+  if (sel) el.textContent = `${sel.block_name} · ${sel.district_name}, ${sel.state_name} · Live ECMWF IFS Outlook`;
+}

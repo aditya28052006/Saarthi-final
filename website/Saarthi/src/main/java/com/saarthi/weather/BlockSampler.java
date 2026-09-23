@@ -62,14 +62,24 @@ public class BlockSampler {
         return c;
     }
 
-    /** All sample points across the 6 blocks, in deterministic block order. */
+    /** All sample points, in deterministic block order. */
     public List<SampleRef> allPoints() {
         List<SampleRef> out = new ArrayList<>();
+        java.util.Set<String> done = new java.util.LinkedHashSet<>();
+        // Legacy order first: byte-identical behaviour for the 6 Sangrur blocks.
         for (String block : RealForecastService.BLOCKS) {
             BlockSamples s = samples().get(block);
             if (s == null) continue;
+            done.add(block);
             for (WeatherProvider.SamplePoint p : s.points()) {
                 out.add(new SampleRef(block, p));
+            }
+        }
+        // Any sample keys beyond the legacy six (future dynamic blocks).
+        for (Map.Entry<String, BlockSamples> e : samples().entrySet()) {
+            if (done.contains(e.getKey())) continue;
+            for (WeatherProvider.SamplePoint p : e.getValue().points()) {
+                out.add(new SampleRef(e.getKey(), p));
             }
         }
         return out;
@@ -77,6 +87,20 @@ public class BlockSampler {
 
     public record BlockSamples(List<WeatherProvider.SamplePoint> points, String spatialMethod) {}
     public record SampleRef(String blockName, WeatherProvider.SamplePoint point) {}
+
+    /**
+     * Label for single-centroid blocks on the dynamic registry path: one
+     * honest point sample — NEVER presented as polygon averaging.
+     */
+    public static final String CENTROID_METHOD =
+            "single_point_centroid (registry centroid; NOT polygon-averaged)";
+
+    /** Single-point samples for a registry centroid (dynamic path; no GeoJSON). */
+    public static BlockSamples centroidSamples(double latitude, double longitude) {
+        return new BlockSamples(
+                List.of(new WeatherProvider.SamplePoint(latitude, longitude)),
+                CENTROID_METHOD);
+    }
 
     Map<String, BlockSamples> buildSamples(String geoJson) {
         Map<String, BlockSamples> out = new LinkedHashMap<>();

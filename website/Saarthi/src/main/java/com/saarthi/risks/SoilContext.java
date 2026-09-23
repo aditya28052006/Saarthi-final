@@ -2,8 +2,10 @@ package com.saarthi.risks;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.saarthi.soil.SoilGridsClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
@@ -28,6 +30,18 @@ public class SoilContext {
     static final String RESOURCE = "risk/soil_context.json";
 
     private final Map<String, String> lineByBlock = new ConcurrentHashMap<>();
+
+    /**
+     * Optional dynamic SoilGrids point lookup (setter-injected so the bundled
+     * Sangrur path — and plain {@code new SoilContext()} in tests — works
+     * with or without it).
+     */
+    private volatile SoilGridsClient soilGrids;
+
+    @Autowired(required = false)
+    public void setSoilGrids(SoilGridsClient soilGrids) {
+        this.soilGrids = soilGrids;
+    }
 
     public SoilContext() {
         this(RESOURCE);
@@ -59,5 +73,29 @@ public class SoilContext {
     /** Factual soil line for a block, or {@code null} when unavailable. */
     public String describe(String block) {
         return lineByBlock.get(block);
+    }
+
+    /**
+     * Factual soil line for an arbitrary centroid via the SoilGrids point
+     * API (dynamic registry path). Fail-soft: {@code null} when the lookup
+     * is unconfigured or unavailable — never fabricated, never a Sangrur
+     * value substituted for another block.
+     */
+    public String lineForCoords(double lat, double lon) {
+        SoilGridsClient client = soilGrids;
+        if (client == null) return null;
+        SoilGridsClient.SoilProfile p = client.lookup(lat, lon);
+        if (!p.available()) return null;
+        return String.format(Locale.ROOT,
+                "clay %s · sand %s · silt %s · organic carbon %s · pH %s "
+                        + "(SoilGrids 0–5 cm point query, context only)",
+                fmt(p.clayGkg(), "g/kg"), fmt(p.sandGkg(), "g/kg"),
+                fmt(p.siltGkg(), "g/kg"), fmt(p.socGkg(), "g/kg"), fmt(p.ph(), ""));
+    }
+
+    private static String fmt(Double v, String unit) {
+        if (v == null) return "No data";
+        String s = String.format(Locale.ROOT, v < 100 ? "%.1f" : "%.0f", v);
+        return unit.isEmpty() ? s : s + " " + unit;
     }
 }
