@@ -1,9 +1,9 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Saarthi Platform â€” Hyperlocal Climate & Agronomy Intelligence</title>
+  <title>Saarthi Platform — Hyperlocal Climate & Agronomy Intelligence</title>
   <meta name="description" content="SAARTHI decision platform: live ECMWF IFS outlook per selected block (D+1..D+16) plus a 17-30 day climatological outlook." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,9 +15,9 @@
 </head>
 <body>
 <div class="page-shell portal-shell">
-  <!-- Portal Navigation Header with Active Route Indicators & Trilingual Switcher -->
+  <!-- Portal Navigation Header with Active Route Indicators & Bilingual Switcher -->
   <nav class="portal-nav">
-    <a class="brand" href="/"><span class="brand-mark">âŒ</span>Saarthi</a>
+    <a class="brand" href="/"><img class="brand-logo" src="/static/assets/logo.png" alt="Saarthi" height="32">Saarthi</a>
     
     <div class="nav-tabs">
       <a href="/farmer" id="nav-farmer" data-i18n="nav_farmer">Farmer Portal</a>
@@ -29,8 +29,7 @@
       <span class="live-pill"><i class="live-dot"></i> <span data-i18n="live_monitoring">Live Monitoring</span></span>
       <div class="lang-switcher">
         <button class="lang-btn active" data-lang="en">EN</button>
-        <button class="lang-btn" data-lang="hi">à¤¹à¤¿à¤‚</button>
-        <button class="lang-btn" data-lang="pa">à¨ªà©°</button>
+        <button class="lang-btn" data-lang="hi">हिन्दी</button>
       </div>
     </div>
   </nav>
@@ -38,7 +37,7 @@
   <!-- Main Platform Shell -->
   <main class="portal-main">
     <header class="portal-header">
-      <p class="eyebrow"><i class="live-dot"></i> <span data-i18n="district_name">Sangrur District, Punjab Â· 6 Blocks Â· Live ECMWF IFS Outlook</span></p>
+      <p class="eyebrow"><i class="live-dot"></i> <span data-i18n="district_name">Sangrur District, Punjab · 6 Blocks · Live ECMWF IFS Outlook</span></p>
       <h1 id="page-title">Farmer <em>advisory.</em></h1>
       <p id="page-intro" class="portal-intro"></p>
     </header>
@@ -65,17 +64,6 @@
             <select id="form-block"></select>
           </label>
           <p id="form-location-note" style="font-size:12px;opacity:.8;margin:-4px 0 8px;"></p>
-
-          <label>
-            <span data-i18n="lbl_panchayat">Panchayat</span>
-            <select id="form-panchayat">
-              <!-- Populated dynamically based on block -->
-              <option value="Suler Gherat">Suler Gherat</option>
-              <option value="Kularan">Kularan</option>
-              <option value="Chhajli">Chhajli</option>
-              <option value="Dirba">Dirba</option>
-            </select>
-          </label>
 
           <label>
             <span data-i18n="lbl_crop">Crop Variety</span>
@@ -115,7 +103,7 @@
           </label>
 
           <button class="primary-button" id="form-refresh-btn">
-            <span data-i18n="btn_update_advisory">Compute Advisory</span> <span>â†’</span>
+            <span data-i18n="btn_update_advisory">Compute Advisory</span> <span>→</span>
           </button>
         </aside>
 
@@ -125,16 +113,16 @@
           <div class="decision-hero-card">
             <div class="decision-badge-strip">
               <span class="decision-tag sow" id="decision-tag">SAFE TO SOW</span>
-              <span class="window-badge"><span data-i18n="lbl_recommended_window">Recommended Window:</span> <strong id="decision-window">Sep 06 â€“ Sep 12</strong></span>
+              <span class="window-badge"><span data-i18n="lbl_recommended_window">Recommended Window:</span> <strong id="decision-window">Sep 06 – Sep 12</strong></span>
             </div>
 
-            <h2 id="decision-headline">Optimal sowing window for Paddy (PR-126).</h2>
-            <p class="decision-rationale" id="decision-explanation">Loading personalized agronomic rationale...</p>
+            <h2 id="decision-headline">Advisory for your selected block.</h2>
+            <p class="decision-rationale" id="decision-explanation">Select State → District → Block, then Compute Advisory to load the live outlook.</p>
 
             <div class="decision-meta-row">
-              <div><span>Live Weather:</span> <strong id="decision-prob">Loadingâ€¦</strong></div>
+              <div><span>Live Weather:</span> <strong id="decision-prob">Loading…</strong></div>
               <div><span data-i18n="lbl_model_confidence">Model Source:</span> <strong id="decision-confidence">ECMWF IFS (live)</strong></div>
-              <div><span>Target Panchayat:</span> <strong id="decision-target-panchayat">Suler Gherat, Sunam</strong></div>
+              <div><span>Location:</span> <strong id="decision-location">Sunam · Sangrur, Punjab</strong></div>
             </div>
           </div>
 
@@ -142,23 +130,23 @@
           <div class="pillars-grid">
             <div class="pillar-card">
               <span data-i18n="pillar_weather">Weather Watch</span>
-              <strong id="pillar-weather-val">â€”</strong>
+              <strong id="pillar-weather-val">—</strong>
               <small>Live ECMWF IFS outlook</small>
             </div>
             <div class="pillar-card">
               <span data-i18n="pillar_soil">Surface Soil Moisture</span>
-              <strong id="pillar-soil-val">â€”</strong>
-              <small>Forecast 0â€“7 cm (not a measurement)</small>
+              <strong id="pillar-soil-val">—</strong>
+              <small>Forecast 0–7 cm (not a measurement)</small>
             </div>
             <div class="pillar-card">
               <span data-i18n="pillar_crop">Crop Water Need</span>
-              <strong id="pillar-crop-val">â€”</strong>
+              <strong id="pillar-crop-val">—</strong>
               <small>PAU/ICAR crop reference</small>
             </div>
             <div class="pillar-card">
               <span data-i18n="pillar_dry_spell">Dry-Spell Watch</span>
-              <strong id="pillar-dry-val">â€”</strong>
-              <small>Worded watch â€” no fabricated %</small>
+              <strong id="pillar-dry-val">—</strong>
+              <small>Worded watch — no fabricated %</small>
             </div>
           </div>
 
@@ -173,7 +161,7 @@
               </div>
               <div class="gauge-info">
                 <p class="card-kicker" data-i18n="lbl_root_moisture">Forecast Surface Soil Moisture</p>
-                <h3 id="gauge-status">Loading…</h3>
+                <h3 id="gauge-status">Awaiting block selection…</h3>
                 <p>ECMWF IFS 0–7 cm forecast, block mean. Model forecast — not a field measurement.</p>
               </div>
             </div>
@@ -182,11 +170,11 @@
             <div class="share-action-card" style="grid-column: 1 / -1;">
               <div>
                 <p class="card-kicker">Advisory Actions</p>
-                <div id="advisory-actions" style="font-size: 13.5px; line-height: 1.55;">Loading…</div>
+                <div id="advisory-actions" style="font-size: 13.5px; line-height: 1.55;">Advisory actions will appear here once the live outlook loads.</div>
               </div>
               <div style="margin-top: 14px;">
                 <p class="card-kicker">Sources</p>
-                <div id="advisory-sources" style="font-size: 12px; opacity: 0.85;">Loading…</div>
+                <div id="advisory-sources" style="font-size: 12px; opacity: 0.85;">Sources will be listed here.</div>
               </div>
             </div>
 
@@ -199,7 +187,7 @@
               </div>
               <div class="share-buttons-group">
                 <button class="share-kisan-btn" id="share-whatsapp-btn">
-                  <span>ðŸ“±</span> <span id="share-btn-text" data-i18n="btn_copy_whatsapp">Copy WhatsApp Text</span>
+                  <span>📱</span> <span id="share-btn-text" data-i18n="btn_copy_whatsapp">Copy WhatsApp Text</span>
                 </button>
               </div>
             </div>
@@ -208,44 +196,41 @@
       </div>
     </section>
 
-    <!-- 2. VILLAGE SCALE RISK MAP (/map) -->
+    <!-- 2. LIVE RISK MAP (/map): State → District → Block, ECMWF IFS -->
     <section id="map" class="portal-page" style="display: none;">
       <div class="map-layout-container">
         <!-- P0 forecast-freshness banner (text set by portal.js; stale forecasts must never look fresh) -->
-        <p id="map-freshness-banner" data-freshness-banner="true" style="margin:0 0 12px;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:8px;background:#eef1ea;color:#657566;">Forecast freshness: loadingâ€¦</p>
-        <!-- Map Controls & Filters Bar -->
+        <p id="map-freshness-banner" data-freshness-banner="true" style="margin:0 0 12px;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:8px;background:#eef1ea;color:#657566;">Forecast freshness: loading…</p>
+        <!-- Map Controls: dynamic geography cascade (geo-select.js, never hardcoded) -->
         <div class="map-controls-bar">
           <div class="map-filters">
             <label style="margin: 0; font-weight: 700; font-size: 11px;">
-              <span data-i18n="map_filter_block">Filter by Block:</span>
-              <select id="map-block-filter">
-                <option value="all" data-i18n="map_all_blocks">All blocks</option>
-                <option value="Dhuri">Dhuri</option>
-                <option value="Lehra">Lehra</option>
-                <option value="Malerkotla">Malerkotla</option>
-                <option value="Moonak">Moonak</option>
-                <option value="Sangrur">Sangrur</option>
-                <option value="Sunam">Sunam</option>
-              </select>
+              <span data-i18n="geo_state">State</span>
+              <select id="map-state"></select>
             </label>
-
             <label style="margin: 0; font-weight: 700; font-size: 11px;">
-              <span data-i18n="map_filter_risk">Filter by Category:</span>
-              <select id="map-category-filter">
-                <option value="all" data-i18n="map_all_risks">All Categories</option>
-                <option value="LOW" data-i18n="risk_low">LOW (&lt;10.94 mm)</option>
-                <option value="NORMAL" data-i18n="risk_mod">NORMAL</option>
-                <option value="HIGH" data-i18n="risk_high">HIGH (&gt;34.66 mm)</option>
-              </select>
+              <span data-i18n="geo_district">District</span>
+              <select id="map-district"></select>
+            </label>
+            <label style="margin: 0; font-weight: 700; font-size: 11px;">
+              <span data-i18n="lbl_block">Block</span>
+              <select id="map-block"></select>
+            </label>
+            <label style="margin: 0; font-weight: 700; font-size: 11px; align-self: end;">
+              <input type="checkbox" id="map-show-boundary" checked style="width:auto;">
+              <span data-i18n="map_show_boundary">Show block boundary</span>
             </label>
           </div>
 
           <div class="map-legend-pills">
-            <span class="legend-pill low"><i></i> <span data-i18n="risk_low">LOW (&lt;10.94 mm)</span></span>
-            <span class="legend-pill mod"><i></i> <span data-i18n="risk_mod">NORMAL</span></span>
-            <span class="legend-pill high"><i></i> <span data-i18n="risk_high">HIGH (&gt;34.66 mm)</span></span>
-            <span style="color: #657566; margin-left: 8px;">| Sangrur polygons · live IFS categories</span>
+            <span class="legend-pill low"><i></i> <span data-i18n="map_legend_poly">Selected block</span></span>
+            <span class="legend-pill mod"><i style="background:#427c9c;"></i> <span data-i18n="map_legend_marker">Live forecast marker</span></span>
           </div>
+        </div>
+
+        <!-- Current block outlook card (populated by portal.js from live API values) -->
+        <div id="map-forecast-card" class="matrix-table-wrap" style="margin-bottom:12px;">
+          <p style="font-size: 12.5px; margin: 0;" data-i18n="map_standby">Select a state, district and block to view the live outlook.</p>
         </div>
 
         <!-- Interactive Leaflet Map Canvas -->
@@ -257,7 +242,7 @@
     <section id="timeline" class="portal-page" style="display: none;">
       <div class="timeline-card-wrap">
         <!-- P0 forecast-freshness banner (text set by portal.js; stale forecasts must never look fresh) -->
-        <p id="timeline-freshness-banner" data-freshness-banner="true" style="margin:0 0 12px;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:8px;background:#eef1ea;color:#657566;">Forecast freshness: loadingâ€¦</p>
+        <p id="timeline-freshness-banner" data-freshness-banner="true" style="margin:0 0 12px;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:8px;background:#eef1ea;color:#657566;">Forecast freshness: loading…</p>
         <div class="timeline-header-bar">
           <div>
             <p class="card-kicker" data-i18n="timeline_title">Probabilistic Outlook</p>
@@ -285,7 +270,7 @@
                 <th data-i18n="th_day">Day</th>
                 <th data-i18n="th_date">Date</th>
                 <th data-i18n="th_rain">Predicted Rain (mm)</th>
-                <th data-i18n="th_wetdry">Wet / Dry (â‰¥1 mm)</th>
+                <th data-i18n="th_wetdry">Wet / Dry (≥1 mm)</th>
               </tr>
             </thead>
             <tbody id="forecast-matrix-tbody">
@@ -296,7 +281,7 @@
 
         <!-- Live Operational Outlook (Open-Meteo delivery + ECMWF IFS NWP, 16 days).
              Phase 1+2: block-level live rainfall alongside the validated 7-day outlook.
-             Days 16â€“30 are NOT served (no deterministic feed; never synthesised). -->
+             Days 16–30 are NOT served (no deterministic feed; never synthesised). -->
         <h3 style="font-size: 16px; margin: 24px 0 12px; letter-spacing: 0.01em; word-spacing: 0.05em;">Live ECMWF IFS Outlook (16-day, short/medium range)</h3>
         <div class="matrix-table-wrap">
           <label style="display:block; margin-bottom: 8px; font-weight: 700; font-size: 12.5px;">
@@ -305,8 +290,8 @@
             <span data-i18n="lbl_block">Block</span>:
             <select id="live-block-select"></select>
           </label>
-          <p id="live-meta" style="font-size: 12.5px; margin: 0 0 4px;">Live outlook loadingâ€¦</p>
-          <p id="live-freshness" data-freshness-banner="true" style="margin:0 0 12px;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:8px;background:#eef1ea;color:#657566;">Forecast freshness: loadingâ€¦</p>
+          <p id="live-meta" style="font-size: 12.5px; margin: 0 0 4px;">Live outlook loading…</p>
+          <p id="live-freshness" data-freshness-banner="true" style="margin:0 0 12px;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:8px;background:#eef1ea;color:#657566;">Forecast freshness: loading…</p>
           <table class="matrix-table">
             <thead>
               <tr>
@@ -317,34 +302,37 @@
               </tr>
             </thead>
             <tbody id="live-matrix-tbody">
-              <tr><td colspan="4">Loading live outlookâ€¦</td></tr>
+              <tr><td colspan="4">Loading live outlook…</td></tr>
             </tbody>
           </table>
-          <p style="font-size: 12px; opacity: 0.75; margin-top: 8px;">Days 1â€“7 operational Â· 8â€“15 extended/lower-confidence Â· 16â€“30 not served by the 16-day deterministic feed. Missing values are shown as â€œNo dataâ€, never filled with zero.</p>
+          <p style="font-size: 12px; opacity: 0.75; margin-top: 8px;">Days 1–7 operational · 8–15 extended/lower-confidence · 16–30 not served by the 16-day deterministic feed. Missing values are shown as “No data”, never filled with zero.</p>
+          <div class="plain-box" id="live-meaning" hidden><p class="plain-kicker" data-i18n="plain_kicker">In simple terms</p><p class="plain-text" id="live-meaning-text"></p></div>
         </div>
 
         <!-- Agricultural Risk (Phase 4.3: composite_v1 priority composite, /api/risks/*).
              Rule-based priority, NOT a score: FIELD_HIGH -> HIGH; provisional
              dry-spell watch -> MODERATE (never HIGH); stale -> MODERATE.
              Generic signals only: no crops, no agronomic prescriptions. -->
-        <h3 style="font-size: 16px; margin: 24px 0 12px; letter-spacing: 0.01em; word-spacing: 0.05em;">Agricultural Risk (D+1â€“D+3)</h3>
+        <h3 style="font-size: 16px; margin: 24px 0 12px; letter-spacing: 0.01em; word-spacing: 0.05em;">Agricultural Risk (D+1–D+3)</h3>
         <div class="matrix-table-wrap">
-          <p id="risk-meta" style="font-size: 12.5px; margin: 0 0 4px;">Field-work risk loadingâ€¦</p>
-          <p id="risk-card" style="margin:0 0 8px;font-size:13px;font-weight:700;padding:8px 12px;border-radius:8px;background:#eef1ea;color:#657566;">Loadingâ€¦</p>
+          <p id="risk-meta" style="font-size: 12.5px; margin: 0 0 4px;">Field-work risk loading…</p>
+          <p id="risk-card" style="margin:0 0 8px;font-size:13px;font-weight:700;padding:8px 12px;border-radius:8px;background:#eef1ea;color:#657566;">Loading…</p>
           <p id="risk-primary" style="font-size: 12.5px; margin: 0 0 4px;"></p>
           <p id="risk-evidence" style="font-size: 12.5px; margin: 0 0 4px;"></p>
           <p id="risk-others" style="font-size: 12.5px; margin: 0 0 4px;"></p>
           <p id="risk-advisory" style="font-size: 12.5px; margin: 0 0 4px;"></p>
-          <p style="font-size: 12px; opacity: 0.75; margin-top: 8px;">Rule-based composite (composite_v1, no score): HIGH when â‰¥2 of the next 3 forecast days are wet (â‰¥1 mm/day). Dry-spell watch is provisional (IFS validation pending) and never drives HIGH. Heavy-rain flag is display-only evidence. Historically validated on GEFS; live IFS transfer not yet confirmed â€” shown at MODERATE confidence, never as validated.</p>
+          <p style="font-size: 12px; opacity: 0.75; margin-top: 8px;">Rule-based composite (composite_v1, no score): HIGH when ≥2 of the next 3 forecast days are wet (≥1 mm/day). Dry-spell watch is provisional (IFS validation pending) and never drives HIGH. Heavy-rain flag is display-only evidence. Historically validated on GEFS; live IFS transfer not yet confirmed — shown at MODERATE confidence, never as validated.</p>
+          <div class="plain-box" id="risk-meaning" hidden><p class="plain-kicker" data-i18n="plain_kicker">In simple terms</p><p class="plain-text" id="risk-meaning-text"></p></div>
         </div>
 
         <!-- Weeks 3-4 Extended Climate Outlook (Phase 3B: display-only, climatology-based).
               NOT a deterministic forecast: W3 = D+17..D+23, W4 = D+24..D+30 per block.
               MJO/IOD/ENSO shown as context only, never wired into probabilities. -->
-        <h3 style="font-size: 16px; margin: 24px 0 12px; letter-spacing: 0.01em; word-spacing: 0.05em;">17-30 Day Climatological Outlook â€” Weeks 3-4 (not an IFS forecast)</h3>
+        <h3 style="font-size: 16px; margin: 24px 0 12px; letter-spacing: 0.01em; word-spacing: 0.05em;">17-30 Day Climatological Outlook — Weeks 3-4 (not an IFS forecast)</h3>
         <div class="matrix-table-wrap">
-          <p id="w34-meta" style="font-size: 12.5px; margin: 0 0 4px;">Extended outlook loadingâ€¦</p>
-          <p id="w34-freshness" data-freshness-banner="true" style="margin:0 0 12px;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:8px;background:#eef1ea;color:#657566;">Extended outlook freshness: loadingâ€¦</p>
+          <p class="section-note" data-i18n="w34_guide_note">This is a longer-range guide based on the block’s usual rainfall pattern — not a day-by-day rainfall forecast.</p>
+          <p id="w34-meta" style="font-size: 12.5px; margin: 0 0 4px;">Extended outlook loading…</p>
+          <p id="w34-freshness" data-freshness-banner="true" style="margin:0 0 12px;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:8px;background:#eef1ea;color:#657566;">Extended outlook freshness: loading…</p>
           <table class="matrix-table">
             <thead>
               <tr>
@@ -356,22 +344,25 @@
               </tr>
             </thead>
             <tbody id="w34-matrix-tbody">
-              <tr><td colspan="5">Loading extended outlookâ€¦</td></tr>
+              <tr><td colspan="5">Loading extended outlook…</td></tr>
             </tbody>
           </table>
           <p id="w34-narrative" style="font-size: 12.5px; margin: 8px 0 0;"></p>
-          <p style="font-size: 12px; opacity: 0.75; margin-top: 8px;">Extended climate outlook: W3/W4 probabilities are the climatological tercile prior (1/3 each), not a calibrated forecast. Rainfall amounts are climatological normals for reference only â€” not deterministic predictions. MJO / IOD / ENSO are context only.</p>
+          <p style="font-size: 12px; opacity: 0.75; margin-top: 8px;">Extended climate outlook: W3/W4 probabilities are the climatological tercile prior (1/3 each), not a calibrated forecast. Rainfall amounts are climatological normals for reference only — not deterministic predictions. MJO / IOD / ENSO are context only.</p>
+          <div class="plain-box" id="w34-meaning" hidden><p class="plain-kicker" data-i18n="plain_kicker">In simple terms</p><p class="plain-text" id="w34-meaning-text"></p></div>
         </div>
 
         <!-- Large-Scale Climate Context (MJO + ENSO + IOD note; explanatory only, not a rainfall driver) -->
         <h3 style="font-size: 16px; margin: 24px 0 12px; letter-spacing: 0.01em; word-spacing: 0.05em;">Large-Scale Climate Context</h3>
         <div class="matrix-table-wrap">
+          <p class="section-note" data-i18n="climate_guide_note">Large-scale background only — the local 16-day forecast above comes from ECMWF IFS.</p>
           <table class="matrix-table">
             <tbody id="climate-context-tbody">
-              <tr><td>Loading climate contextâ€¦</td></tr>
+              <tr><td>Loading climate context…</td></tr>
             </tbody>
           </table>
-          <p style="font-size: 12px; opacity: 0.75; margin-top: 8px;">Climate context is explanatory only â€” the live rainfall forecast above comes from Open-Meteo ECMWF IFS.</p>
+          <p style="font-size: 12px; opacity: 0.75; margin-top: 8px;">Climate context is explanatory only — the live rainfall forecast above comes from Open-Meteo ECMWF IFS.</p>
+          <div class="plain-box" id="climate-meaning" hidden><p class="plain-kicker" data-i18n="climate_plain_title">Climate context in simple terms</p><p class="plain-text" id="climate-meaning-text"></p></div>
         </div>
       </div>
     </section>
@@ -379,9 +370,9 @@
 
   <!-- Platform Footer -->
   <footer>
-    <a class="brand" href="/"><span class="brand-mark">âŒ</span>Saarthi</a>
+    <a class="brand" href="/"><img class="brand-logo" src="/static/assets/logo.png" alt="Saarthi" height="32">Saarthi</a>
     <p data-i18n="footer_text">Climate clarity for stronger rural futures.</p>
-    <span data-i18n="footer_copy">Â© 2026 Â· SIH26086 Hyperlocal Monsoon Intelligence</span>
+    <span data-i18n="footer_copy">© 2026 · SIH26086 Hyperlocal Monsoon Intelligence</span>
   </footer>
 </div>
 
