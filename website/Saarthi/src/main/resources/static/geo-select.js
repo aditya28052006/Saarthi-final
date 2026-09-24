@@ -283,8 +283,41 @@ const SaarthiGeo = (() => {
     return d.blocks || [];
   }
 
+  /**
+   * Display-only number formatting (Bug-4 cleanup). API values are never
+   * rounded before calculation — these helpers format for display only so
+   * the UI never shows floating-point artefacts like 57.49999999999999 mm.
+   */
+  function num1(v) {
+    if (v === null || v === undefined || !Number.isFinite(Number(v))) return null;
+    const r = Math.round(Number(v) * 10) / 10;
+    return Number.isInteger(r) ? String(r) : r.toFixed(1);
+  }
+  const fmt = {
+    /** Rainfall in mm, 1 decimal (integers shown without decimals). */
+    rain(v) {
+      const s = num1(v);
+      return s === null ? 'No data' : `${s} mm`;
+    },
+    /** Soil moisture (volumetric fraction), 2 decimals. */
+    soil(v) {
+      if (v === null || v === undefined || !Number.isFinite(Number(v))) return 'No data';
+      return `${Number(v).toFixed(2)} m³/m³`;
+    },
+    /** Percentages, 1 decimal. */
+    pct(v) {
+      const s = num1(v);
+      return s === null ? '—' : `${s}%`;
+    },
+    /** Temperatures, 1 decimal. */
+    temp(v) {
+      const s = num1(v);
+      return s === null ? '—' : `${s}°C`;
+    },
+  };
+
   return {
     wireCascade, fetchBlockForecast, searchBlocks,
-    loadSelection, saveSelection, locationLabel, getJSON,
+    loadSelection, saveSelection, locationLabel, getJSON, fmt,
   };
 })();

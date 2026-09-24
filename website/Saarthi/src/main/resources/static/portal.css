@@ -718,6 +718,120 @@
   to { transform: translateY(0); opacity: 1; }
 }
 
+/* Plain-language "What this means" explanation boxes (subordinate, scan-friendly) */
+.meaning-box {
+  margin-top: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: #f2f5ef;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--lime-soft);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #3c4a3e;
+}
+.meaning-kicker {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--moss);
+  margin-bottom: 2px;
+}
+
+/* ---- UX polish pass: two-layer information hierarchy ---- */
+
+/* Primary takeaway vs secondary explanation on the Forecast page. */
+.plain-box {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #f2f5ef;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--lime-soft);
+}
+.plain-kicker {
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: #e4efe0;
+  border: 1px solid #b9d2bd;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--moss);
+}
+.plain-text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: #3c4a3e;
+  white-space: pre-line;
+}
+
+/* Secondary guide notes under section headings (climatology honesty). */
+.section-note {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #556658;
+  background: #fbfcf9;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0 0 12px;
+}
+
+/* Farmer hero: takeaway-first hierarchy, calmer metadata. */
+.decision-meta-row {
+  flex-wrap: wrap;
+  gap: 10px 22px;
+}
+.decision-meta-row div {
+  font-size: 11px;
+}
+#advisory-actions ul, #advisory-sources ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+#advisory-actions li, #advisory-sources li {
+  margin-bottom: 5px;
+}
+
+/* Intentional loading / empty states (never a bare "Loading..."). */
+.api-loading-note, .api-error-note {
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #eef1ea;
+  color: #657566;
+  border: 1px solid var(--line);
+  margin: 0 0 12px;
+}
+.api-error-note {
+  background: #fbe3dc;
+  color: #a33;
+  border-color: #e0a08e;
+}
+
+/* Map controls stay compact and touch-friendly. */
+.map-filters {
+  flex-wrap: wrap;
+}
+.map-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.map-filters select {
+  min-height: 34px;
+  min-width: 130px;
+}
+.map-controls-bar {
+  align-items: flex-end;
+}
+
 /* Responsive Overrides */
 @media (max-width: 960px) {
   .portal-grid, .gauge-actions-row {
@@ -741,4 +855,26 @@
   #leaflet-map-canvas {
     height: 380px;
   }
+}
+
+/* Compact header/footer brand: the logo can never blow up or overlap content. */
+.portal-nav .brand-logo {
+  height: 32px;
+  width: auto;
+  max-width: 160px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+}
+footer .brand-logo {
+  height: 40px;
+  width: auto;
+  max-width: 200px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+}
+@media (max-width: 640px) {
+  .portal-nav .brand-logo { height: 28px; }
+  footer .brand-logo { height: 32px; }
 }

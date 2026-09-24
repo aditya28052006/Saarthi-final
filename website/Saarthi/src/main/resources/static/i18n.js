@@ -1,7 +1,7 @@
 /**
- * SAARTHI Trilingual Translation Engine
- * Instant Language Switching for English (EN), Hindi (हिं), and Punjabi (ਪੰ)
- * Tailored specifically for Punjab's farming community.
+ * SAARTHI Bilingual Translation Engine
+ * Instant Language Switching for English (EN) and Hindi (हिन्दी).
+ * Served across India.
  */
 
 const I18N_DICTIONARY = {
@@ -35,12 +35,12 @@ const I18N_DICTIONARY = {
     risk_high: "HIGH (>34.66 mm)",
 
     // Stats
-    stat_1_val: "7-Day",
-    stat_1_lbl: "Validated Rainfall Outlook",
+    stat_1_val: "16-Day",
+    stat_1_lbl: "Live ECMWF IFS Outlook",
     stat_2_val: "D+1–D+16",
     stat_2_lbl: "Live horizon per selected block",
-    stat_3_val: "6 Blocks",
-    stat_3_lbl: "Validated Bhuvan Boundaries",
+    stat_3_val: "7,179 Blocks",
+    stat_3_lbl: "Live national block registry",
     stat_4_val: "19.54 mm",
     stat_4_lbl: "Historical Test MAE (NB04)",
 
@@ -100,6 +100,10 @@ const I18N_DICTIONARY = {
     map_all_blocks: "All blocks",
     map_all_risks: "All Categories",
     map_panchayats_active: "Panchayats Monitored",
+    map_standby: "Select a state, district and block to view the live outlook.",
+    map_show_boundary: "Show block boundary",
+    map_legend_poly: "Selected block",
+    map_legend_marker: "Live forecast marker",
 
     // Timeline / Forecast
     timeline_title: "7-Day Forecast Outlook",
@@ -113,6 +117,35 @@ const I18N_DICTIONARY = {
     th_moisture: "Soil Moisture",
     th_risk: "Risk Status",
     th_wetdry: "Wet / Dry (≥1 mm)",
+
+    // Plain-language explanations ("What this means")
+    meaning_kicker: "WHAT THIS MEANS",
+    plain_kicker: "In simple terms",
+    climate_plain_title: "Climate context in simple terms",
+    w34_guide_note: "This is a longer-range guide based on the block's usual rainfall pattern — not a day-by-day rainfall forecast.",
+    climate_guide_note: "Large-scale background only — the local 16-day forecast above comes from ECMWF IFS.",
+    meaning_risk_high: "Rain is expected on {n} of the next 3 days. Field work may be difficult, so consider avoiding activities that need dry soil.",
+    meaning_risk_moderate: "Some rain-related field disruption is possible over the next 3 days. Check the daily rain forecast before planning field work.",
+    meaning_risk_low: "No major rain-related field-work problem is currently indicated for the next 3 days. This does not mean there will be no rain — keep using the daily forecast when planning.",
+    meaning_risk_unavailable: "Rain is forecast for this block, but field-risk scoring is not available here yet. Use the 16-day rain forecast above when planning field work.",
+    meaning_live_dry: "The next several days are expected to stay mostly dry. If your crop needs water, monitor soil moisture and plan irrigation according to crop stage.",
+    meaning_live_moderate: "Some rain is expected during this period. Rain may reduce irrigation needs, but check the daily forecast before spraying or field work.",
+    meaning_live_wet: "Significant rain is expected during this period. Prepare for wet field conditions and possible delays to field operations.",
+    meaning_live_concentrated: "Most of the expected rain is concentrated around {dates}. These days may be less suitable for spraying, sowing, harvesting, or other field work.",
+    meaning_live_unavailable: "The rainfall forecast for this block is currently unavailable. Please try again later — no estimated values are shown.",
+    meaning_w34_about: "This is a longer-range guide based on the block's usual rainfall pattern. It can help with broad planning for weeks 3–4, but it should not be treated as a day-by-day rain forecast.",
+    meaning_w34_below: "Rainfall during this period is expected to be below the block's usual level.",
+    meaning_w34_near: "Rainfall during this period is expected to be close to the block's usual level.",
+    meaning_w34_above: "Rainfall during this period is expected to be above the block's usual level.",
+    meaning_w34_unavailable: "This longer-range outlook is not available for this block yet. The 16-day ECMWF IFS forecast above is still available.",
+    meaning_mjo: "MJO describes a large-scale movement of tropical rainfall and thunderstorms around the world. Its current state can influence monsoon activity, but this is background climate information — the local rainfall forecast above remains the main guide.",
+    meaning_mjo_phase: "MJO is currently in Phase {phase}. This is useful background for understanding broader monsoon conditions, but the local 16-day rainfall forecast still comes from ECMWF IFS.",
+    meaning_enso: "ENSO describes unusually warm or cool conditions in the tropical Pacific Ocean. It can influence monsoon patterns across large regions, but it does not directly determine the rainfall forecast for this block.",
+    meaning_enso_elnino: "The Pacific is currently in an El Niño state. El Niño can influence India's monsoon pattern, but the local rainfall forecast above should be used for near-term planning.",
+    meaning_enso_neutral: "Pacific Ocean conditions are currently near neutral. ENSO is shown as background climate information; the local forecast above remains the main guide for the next 16 days.",
+    meaning_enso_lanina: "The Pacific is currently in a La Niña state. La Niña can influence India's monsoon pattern, but the local rainfall forecast above should be used for near-term planning.",
+    meaning_iod: "IOD describes the difference in sea-surface temperatures between the western and eastern tropical Indian Ocean. It can influence monsoon rainfall patterns, but it is background climate information and does not replace the local ECMWF IFS forecast.",
+    meaning_iod_stale: "IOD is currently shown as {state}, but the latest available IOD data is older than the current forecast. Treat this as background information rather than a current local forecast signal.",
 
     // Footer
     footer_text: "Climate clarity for stronger rural futures.",
@@ -149,12 +182,12 @@ const I18N_DICTIONARY = {
     risk_high: "HIGH (>34.66 mm)",
 
     // Stats
-    stat_1_val: "7-दिवसीय",
-    stat_1_lbl: "सत्यापित वर्षा पूर्वानुमान",
+    stat_1_val: "16-दिवसीय",
+    stat_1_lbl: "लाइव ECMWF IFS आउटलुक",
     stat_2_val: "D+1–D+16",
     stat_2_lbl: "चुने गए ब्लॉक हेतु लाइव अवधि",
-    stat_3_val: "6 ब्लॉक",
-    stat_3_lbl: "सत्यापित भूवन सीमाएँ",
+    stat_3_val: "7,179 ब्लॉक",
+    stat_3_lbl: "लाइव राष्ट्रीय ब्लॉक रजिस्ट्री",
     stat_4_val: "19.54 mm",
     stat_4_lbl: "ऐतिहासिक टेस्ट MAE",
 
@@ -214,6 +247,10 @@ const I18N_DICTIONARY = {
     map_all_blocks: "सभी ब्लॉक",
     map_all_risks: "सभी श्रेणियाँ",
     map_panchayats_active: "निगरानी में पंचायतें",
+    map_standby: "लाइव आउटलुक देखने हेतु राज्य, जिला और ब्लॉक चुनें।",
+    map_show_boundary: "ब्लॉक सीमा दिखाएँ",
+    map_legend_poly: "चुना गया ब्लॉक",
+    map_legend_marker: "लाइव पूर्वानुमान मार्कर",
 
     // Timeline / Forecast
     timeline_title: "7-दिवसीय मौसम पूर्वानुमान",
@@ -228,127 +265,53 @@ const I18N_DICTIONARY = {
     th_risk: "जोखिम स्थिति",
     th_wetdry: "गीला / सूखा (≥1 मिमी)",
 
+    // सरल भाषा में व्याख्या ("इसका मतलब")
+    meaning_kicker: "इसका मतलब",
+    plain_kicker: "सरल शब्दों में",
+    climate_plain_title: "सरल शब्दों में जलवायु पृष्ठभूमि",
+    w34_guide_note: "यह ब्लॉक के सामान्य वर्षा पैटर्न पर आधारित लंबी अवधि का मार्गदर्शन है — दिन-प्रतिदिन का वर्षा पूर्वानुमान नहीं।",
+    climate_guide_note: "केवल बड़े पैमाने की पृष्ठभूमि जानकारी — ऊपर दिया स्थानीय 16-दिवसीय पूर्वानुमान ECMWF IFS से आता है।",
+    meaning_risk_high: "अगले 3 दिनों में से {n} दिन वर्षा की उम्मीद है। खेत का काम मुश्किल हो सकता है, इसलिए सूखी मिट्टी वाले काम टालने पर विचार करें।",
+    meaning_risk_moderate: "अगले 3 दिनों में वर्षा से खेत के काम में कुछ बाधा संभव है। काम की योजना बनाने से पहले दैनिक वर्षा पूर्वानुमान ज़रूर देखें।",
+    meaning_risk_low: "अगले 3 दिनों में वर्षा से जुड़े खेत-कार्य में किसी बड़ी बाधा का संकेत नहीं है। इसका मतलब यह नहीं कि वर्षा बिल्कुल नहीं होगी — योजना के लिए दैनिक पूर्वानुमान देखते रहें।",
+    meaning_risk_unavailable: "इस ब्लॉक के लिए वर्षा का पूर्वानुमान उपलब्ध है, लेकिन खेत-जोखिम गणना अभी यहाँ उपलब्ध नहीं है। योजना के लिए ऊपर दिया 16-दिवसीय वर्षा पूर्वानुमान देखें।",
+    meaning_live_dry: "आने वाले कई दिन ज़्यादातर सूखे रहने की उम्मीद है। फसल की अवस्था के अनुसार मिट्टी की नमी पर नज़र रखें और सिंचाई की योजना बनाएँ।",
+    meaning_live_moderate: "इस अवधि में कुछ वर्षा की उम्मीद है। वर्षा से सिंचाई की ज़रूरत कम हो सकती है, लेकिन छिड़काव या खेत के काम से पहले दैनिक पूर्वानुमान ज़रूर देखें।",
+    meaning_live_wet: "इस अवधि में अच्छी वर्षा की उम्मीद है। खेत गीले रह सकते हैं और काम में देरी संभव है — पहले से तैयारी रखें।",
+    meaning_live_concentrated: "अधिकांश वर्षा {dates} के आसपास केंद्रित है। इन दिनों छिड़काव, बुवाई, कटाई या अन्य खेत कार्य कम उपयुक्त हो सकते हैं।",
+    meaning_live_unavailable: "इस ब्लॉक का वर्षा पूर्वानुमान अभी उपलब्ध नहीं है। कृपया बाद में पुनः प्रयास करें — कोई अनुमानित आँकड़ा नहीं दिखाया जा रहा है।",
+    meaning_w34_about: "यह लंबी अवधि का मार्गदर्शन इस ब्लॉक के सामान्य वर्षा पैटर्न पर आधारित है। सप्ताह 3–4 की मोटी योजना में सहायक है, लेकिन इसे दिन-प्रतिदिन का वर्षा पूर्वानुमान न मानें।",
+    meaning_w34_below: "इस अवधि में वर्षा ब्लॉक के सामान्य स्तर से कम रहने की उम्मीद है।",
+    meaning_w34_near: "इस अवधि में वर्षा ब्लॉक के सामान्य स्तर के आसपास रहने की उम्मीद है।",
+    meaning_w34_above: "इस अवधि में वर्षा ब्लॉक के सामान्य स्तर से अधिक रहने की उम्मीद है।",
+    meaning_w34_unavailable: "इस ब्लॉक के लिए यह लंबी अवधि का आउटलुक अभी उपलब्ध नहीं है। ऊपर दिया 16-दिवसीय ECMWF IFS पूर्वानुमान तब भी उपलब्ध है।",
+    meaning_mjo: "MJO दुनिया भर में उष्णकटिबंधीय वर्षा और तूफ़ानों की बड़े पैमाने की हलचल है। इसकी वर्तमान स्थिति मानसून को प्रभावित कर सकती है, लेकिन यह केवल पृष्ठभूमि जानकारी है — ऊपर दिया स्थानीय वर्षा पूर्वानुमान ही मुख्य मार्गदर्शक है।",
+    meaning_mjo_phase: "MJO वर्तमान में फ़ेज़ {phase} में है। यह व्यापक मानसूनी स्थितियों को समझने में सहायक पृष्ठभूमि है, लेकिन स्थानीय 16-दिवसीय वर्षा पूर्वानुमान ECMWF IFS से ही आता है।",
+    meaning_enso: "ENSO प्रशांत महासागर के असामान्य गर्म या ठंडे हालात को दर्शाता है। यह बड़े क्षेत्रों के मानसून को प्रभावित कर सकता है, लेकिन इस ब्लॉक का वर्षा पूर्वानुमान सीधे इससे तय नहीं होता।",
+    meaning_enso_elnino: "प्रशांत महासागर वर्तमान में अल नीनो स्थिति में है। अल नीनो भारत के मानसून को प्रभावित कर सकता है, लेकिन निकट अवधि की योजना के लिए ऊपर दिया स्थानीय वर्षा पूर्वानुमान ही देखें।",
+    meaning_enso_neutral: "प्रशांत महासागर की स्थिति वर्तमान में लगभग सामान्य है। ENSO यहाँ पृष्ठभूमि जानकारी के रूप में दिखाया गया है; अगले 16 दिनों के लिए ऊपर दिया स्थानीय पूर्वानुमान ही मुख्य मार्गदर्शक है।",
+    meaning_enso_lanina: "प्रशांत महासागर वर्तमान में ला नीना स्थिति में है। ला नीना भारत के मानसून को प्रभावित कर सकता है, लेकिन निकट अवधि की योजना के लिए ऊपर दिया स्थानीय वर्षा पूर्वानुमान ही देखें।",
+    meaning_iod: "IOD पश्चिमी और पूर्वी हिंद महासागर के समुद्री तापमान के अंतर को दर्शाता है। यह मानसूनी वर्षा को प्रभावित कर सकता है, लेकिन यह पृष्ठभूमि जानकारी है — स्थानीय ECMWF IFS पूर्वानुमान का विकल्प नहीं।",
+    meaning_iod_stale: "IOD वर्तमान में {state} दिख रहा है, लेकिन उपलब्ध IOD आँकड़ा वर्तमान पूर्वानुमान से पुराना है। इसे पृष्ठभूमि जानकारी मानें, न कि वर्तमान स्थानीय पूर्वानुमान संकेत।",
+
     // Footer
     footer_text: "मजबूत ग्रामीण भविष्य के लिए सटीक मौसम बुद्धिमत्ता।",
     footer_copy: "© 2026 · SIH26086 अति-स्थानीय मानसूनी बुद्धिमत्ता प्रणाली"
   },
 
-  pa: {
-    // Navigation
-    nav_home: "ਮੁੱਖ ਪੰਨਾ",
-    nav_farmer: "ਕਿਸਾਨ ਪੋਰਟਲ",
-    nav_map: "ਜੋਖਮ ਨਕਸ਼ਾ",
-    nav_timeline: "ਮੌਸਮ ਭਵਿੱਖਬਾਣੀ",
-    nav_check_block: "ਆਪਣਾ ਬਲਾਕ ਵੇਖੋ",
-    live_monitoring: "ਲਾਈਵ ਨਿਗਰਾਨੀ",
-    district_name: "ਰਾਜ → ਜ਼ਿਲ੍ਹਾ → ਬਲਾਕ ਚੁਣੋ · ਲਾਈਵ ECMWF IFS ਆਉਟਲੁੱਕ",
-    geo_state: "ਰਾਜ",
-    geo_district: "ਜ਼ਿਲ੍ਹਾ",
-
-    // Hero / Landing
-    hero_eyebrow: "ਹਾਈਪਰਲੋਕਲ ਮੌਸਮੀ ਸੂਝ-ਬੂਝ",
-    hero_title_1: "ਮੌਨਸੂਨ ਨੂੰ",
-    hero_title_em: "ਆਉਣ ਤੋਂ ਪਹਿਲਾਂ",
-    hero_title_2: "ਚੰਗੀ ਤਰ੍ਹਾਂ ਜਾਣੋ।",
-    hero_desc: "ਤੁਹਾਡੇ ਚੁਣੇ ਬਲਾਕ ਲਈ ਲਾਈਵ 16-ਦਿਨਾਂ ECMWF IFS ਮੀਂਹ ਦਾ ਅਨੁਮਾਨ, 17–30 ਦਿਨਾਂ ਜਲਵਾਯੂ ਆਉਟਲੁੱਕ ਸਮੇਤ।",
-    hero_cta: "ਕਿਸਾਨ ਪੋਰਟਲ ਖੋਲ੍ਹੋ",
-    hero_secondary_cta: "ਜੋਖਮ ਨਕਸ਼ਾ ਵੇਖੋ",
-    hero_badge: "ਹਰ ਖੇਤ, ਹਰ ਮੌਸਮ ਲਈ ਤਿਆਰ",
-    hero_card_kicker: "ਸਾਰਥੀ · ਲਾਈਵ ਬਲਾਕ ਆਉਟਲੁੱਕ",
-    hero_card_signal: "ਇਸ ਹਫ਼ਤੇ ਦਾ ਮੌਨਸੂਨੀ ਸੰਕੇਤ",
-    hero_card_days: "ਦਿਨ",
-    hero_card_sub: "ਸੋਕੇ ਦੀ ਅਗੇਤੀ ਚੇਤਾਵਨੀ",
-    risk_low: "LOW (<10.94 mm)",
-    risk_mod: "NORMAL",
-    risk_high: "HIGH (>34.66 mm)",
-
-    // Stats
-    stat_1_val: "7-ਦਿਨਾਂ",
-    stat_1_lbl: "ਪ੍ਰਮਾਣਿਤ ਮੀਂਹ ਅਨੁਮਾਨ",
-    stat_2_val: "D+1–D+16",
-    stat_2_lbl: "ਚੁਣੇ ਬਲਾਕ ਲਈ ਲਾਈਵ ਮਿਆਦ",
-    stat_3_val: "6 ਬਲਾਕ",
-    stat_3_lbl: "ਪ੍ਰਮਾਣਿਤ ਭੁਵਨ ਹੱਦਾਂ",
-    stat_4_val: "19.54 mm",
-    stat_4_lbl: "ਇਤਿਹਾਸਕ ਟੈਸਟ MAE",
-
-    // Feature Cards
-    portal_features_title: "ਸਾਰਥੀ ਪਲੇਟਫਾਰਮ ਦੀਆਂ ਸੇਵਾਵਾਂ",
-    portal_features_sub: "ਕਿਸਾਨਾਂ ਅਤੇ ਖੇਤੀਬਾੜੀ ਲਈ ਫ਼ੈਸਲਾ-ਸਹਾਇਤਾ ਪੋਰਟਲ।",
-    card_farmer_title: "ਕਿਸਾਨ ਸਲਾਹਕਾਰ ਪੋਰਟਲ",
-    card_farmer_desc: "ਖੇਤ ਮੁਤਾਬਕ ਬੀਜਾਈ ਦੇ ਫ਼ੈਸਲੇ, 4-ਥੰਮ੍ਹ ਜੋਖਮ ਵੇਰਵੇ ਅਤੇ ਜ਼ਮੀਨੀ ਨਮੀ ਦਾ ਮੀਟਰ।",
-    card_map_title: "ਬਲਾਕ ਪੱਧਰੀ ਨਕਸ਼ਾ",
-    card_map_desc: "ਸੰਗਰੂਰ ਬਹੁਭੁਜਾਂ ਅਤੇ ਚੁਣੇ ਬਲਾਕ ਲਈ ਲਾਈਵ ਮੀਂਹ ਸ਼੍ਰੇਣੀਆਂ ਵਾਲਾ ਇੰਟਰਐਕਟਿਵ ਨਕਸ਼ਾ।",
-    card_timeline_title: "7-ਦਿਨਾਂ ਮੌਸਮ ਅਨੁਮਾਨ",
-    card_timeline_desc: "ਚੁਣੇ ਬਲਾਕ ਲਈ ਲਾਈਵ ਰੋਜ਼ਾਨਾ ਮੀਂਹ, ਸੰਭਾਵਨਾਵਾਂ ਅਤੇ ਸਾਰਣੀ।",
-
-    // Landing Outlook Section
-    outlook_heading: "ਤੁਹਾਡੇ ਬਲਾਕ ਦਾ ਮੌਸਮ ਹਾਲ",
-    outlook_title_1: "ਇੱਕ ਚੋਣ।",
-    outlook_title_em: "ਸਪੱਸ਼ਟ ਫ਼ੈਸਲਾ।",
-    outlook_desc: "ਰਾਜ → ਜ਼ਿਲ੍ਹਾ → ਬਲਾਕ ਚੁਣੋ। ਸਾਰਥੀ 3/7/15-ਦਿਨਾਂ ਜੋੜ ਸਮੇਤ ਲਾਈਵ ECMWF IFS ਮੀਂਹ ਦਾ ਅਨੁਮਾਨ ਦਿਖਾਉਂਦਾ ਹੈ।",
-    choose_block: "ਆਪਣਾ ਬਲਾਕ ਚੁਣੋ",
-    latest_block_analysis: "ਤਾਜ਼ਾ ਬਲਾਕ ਵਿਸ਼ਲੇਸ਼ਣ",
-    rain_7d: "7-ਦਿਨਾਂ ਕੁੱਲ ਮੀਂਹ",
-    dry_14d: "ਸੁੱਕੇ / ਗਿੱਲੇ ਦਿਨ",
-    expected_rain: "ਸਭ ਤੋਂ ਵੱਧ ਮੀਂਹ ਵਾਲਾ ਦਿਨ",
-    rain_trend: "ਮੀਂਹ ਦਾ ਰੁਝਾਨ",
-    dry_spell_prob_label: "ਸੋਕੇ ਦੀ ਸੰਭਾਵਨਾ",
-    dry_spell_caption: "ਕੈਲੀਬਰੇਟਡ ਸੰਭਾਵਨਾਵਾਂ ਸਮੇਤ LOW / NORMAL / HIGH 7-ਦਿਨਾਂ ਮੀਂਹ ਸ਼੍ਰੇਣੀ।",
-    sowing_rec: "ਬੀਜਾਈ ਦੀ ਸਿਫ਼ਾਰਸ਼",
-
-    // Farmer Portal
-    farmer_title: "ਕਿਸਾਨ ਸਲਾਹਕਾਰ ਪੋਰਟਲ",
-    farmer_subtitle: "ਤੁਹਾਡੇ ਚੁਣੇ ਬਲਾਕ ਲਈ ਹਾਈਪਰਲੋਕਲ ਬੀਜਾਈ ਫ਼ੈਸਲੇ।",
-    farm_profile: "ਖੇਤ ਦਾ ਵੇਰਵਾ",
-    lbl_block: "ਬਲਾਕ",
-    lbl_panchayat: "ਪੰਚਾਇਤ",
-    lbl_crop: "ਫ਼ਸਲ ਦੀ ਕਿਸਮ",
-    lbl_soil: "ਮਿੱਟੀ ਦੀ ਕਿਸਮ",
-    lbl_sowing_date: "ਬੀਜਾਈ ਦੀ ਮਿਤੀ",
-    lbl_irrigation: "ਸਿੰਚਾਈ ਦਾ ਸਾਧਨ",
-    btn_update_advisory: "ਸਲਾਹ ਤਾਜ਼ਾ ਕਰੋ",
-    lbl_sowing_decision: "ਬੀਜਾਈ ਦਾ ਫ਼ੈਸਲਾ",
-    lbl_recommended_window: "ਸਿਫ਼ਾਰਸ਼ੀ ਸਮਾਂ",
-    lbl_model_confidence: "ਮਾਡਲ ਸਰੋਤ",
-    pillar_weather: "ਮੌਸਮ ਜੋਖਮ",
-    pillar_soil: "ਮਿੱਟੀ ਨਮੀ ਜੋਖਮ",
-    pillar_crop: "ਫ਼ਸਲ ਸੰਵੇਦਨਸ਼ੀਲਤਾ",
-    pillar_dry_spell: "ਸੋਕੇ ਦਾ ਅਨੁਮਾਨਿਤ ਖ਼ਤਰਾ",
-    lbl_root_moisture: "ਜੜ੍ਹ-ਖੇਤਰ ਮਿੱਟੀ ਦੀ ਨਮੀ",
-    lbl_root_moisture_sub: "ਜੜ੍ਹ-ਖੇਤਰ (0–30 ਸੈਂਟੀਮੀਟਰ) ਵਿੱਚ ਪਾਣੀ ਦੀ ਮਾਤਰਾ।",
-    btn_copy_whatsapp: "ਵਟਸਐਪ ਸਲਾਹ ਕਾਪੀ ਕਰੋ",
-    btn_copied: "ਸਲਾਹ ਕਲਿੱਪਬੋਰਡ 'ਤੇ ਕਾਪੀ ਹੋ ਗਈ ✓",
-
-    // Map
-    map_title: "ਬਲਾਕ ਪੱਧਰੀ ਨਕਸ਼ਾ",
-    map_subtitle: "ਲਾਈਵ ਮੀਂਹ ਸ਼੍ਰੇਣੀਆਂ ਵਾਲਾ ਇੰਟਰਐਕਟਿਵ ਬਲਾਕ ਨਕਸ਼ਾ।",
-    map_filter_block: "ਬਲਾਕ ਅਨੁਸਾਰ ਫ਼ਿਲਟਰ",
-    map_filter_risk: "ਸ਼੍ਰੇਣੀ ਅਨੁਸਾਰ ਫ਼ਿਲਟਰ",
-    map_all_blocks: "ਸਾਰੇ ਬਲਾਕ",
-    map_all_risks: "ਸਾਰੀਆਂ ਸ਼੍ਰੇਣੀਆਂ",
-    map_panchayats_active: "ਨਿਗਰਾਨੀ ਅਧੀਨ ਪੰਚਾਇਤਾਂ",
-
-    // Timeline / Forecast
-    timeline_title: "7-ਦਿਨਾਂ ਮੌਸਮ ਅਨੁਮਾਨ",
-    timeline_subtitle: "ਚੁਣੇ ਬਲਾਕ ਲਈ ਲਾਈਵ ਰੋਜ਼ਾਨਾ ਮੀਂਹ ਅਤੇ ਸਾਰਣੀ।",
-    timeline_horizon: "ਅਨੁਮਾਨ ਸਮਾਂ",
-    timeline_chart_label: "ਸੰਭਾਵੀ ਮੀਂਹ ਬਨਾਮ ਮਿੱਟੀ ਨਮੀ ਗਿਰਾਵਟ ਗ੍ਰਾਫ਼",
-    th_day: "ਦਿਨ",
-    th_date: "ਮਿਤੀ",
-    th_rain: "ਅਨੁਮਾਨਿਤ ਮੀਂਹ",
-    th_temp: "ਤਾਪਮਾਨ",
-    th_moisture: "ਮਿੱਟੀ ਨਮੀ",
-    th_risk: "ਜੋਖਮ ਹਾਲਤ",
-    th_wetdry: "ਗਿੱਲਾ / ਸੁੱਕਾ (≥1 ਮਿਮੀ)",
-
-    // Footer
-    footer_text: "ਖੇਤੀਬਾੜੀ ਭਵਿੱਖ ਲਈ ਸਟੀਕ ਮੌਸਮੀ ਜਾਣਕਾਰੀ।",
-    footer_copy: "© 2026 · SIH26086 ਹਾਈਪਰਲੋਕਲ ਮੌਨਸੂਨ ਸੂਚਨਾ ਪ੍ਰਣਾਲੀ"
-  }
 };
 
-let currentLanguage = localStorage.getItem("saarthi_lang") || "en";
+const SUPPORTED_LANGUAGES = ["en", "hi"];
+
+function normalizeLanguage(lang) {
+  return SUPPORTED_LANGUAGES.includes(lang) ? lang : "en";
+}
+
+let currentLanguage = normalizeLanguage(localStorage.getItem("saarthi_lang"));
+if (localStorage.getItem("saarthi_lang") !== currentLanguage) {
+  // Migrate obsolete stored values (e.g. legacy "pa") to English.
+  localStorage.setItem("saarthi_lang", currentLanguage);
+}
 
 function getTranslation(key, lang = currentLanguage) {
   if (I18N_DICTIONARY[lang] && I18N_DICTIONARY[lang][key]) {
@@ -361,13 +324,12 @@ function getTranslation(key, lang = currentLanguage) {
 }
 
 function setLanguage(lang) {
-  if (!["en", "hi", "pa"].includes(lang)) lang = "en";
-  currentLanguage = lang;
-  localStorage.setItem("saarthi_lang", lang);
+  currentLanguage = normalizeLanguage(lang);
+  localStorage.setItem("saarthi_lang", currentLanguage);
   applyTranslations();
   
   // Trigger custom event for reactive components
-  window.dispatchEvent(new CustomEvent("languageChanged", { detail: { language: lang } }));
+  window.dispatchEvent(new CustomEvent("languageChanged", { detail: { language: currentLanguage } }));
 }
 
 function applyTranslations() {
@@ -386,7 +348,7 @@ function applyTranslations() {
     }
   });
 
-  // Update active states on trilingual buttons
+  // Update active states on bilingual buttons
   document.querySelectorAll(".lang-btn, .lang-switcher button").forEach((btn) => {
     btn.classList.toggle("active", btn.getAttribute("data-lang") === currentLanguage);
   });

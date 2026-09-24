@@ -2,12 +2,32 @@ const ids = (name) => document.querySelector(name);
 let modelNoteBase = '';
 let geoApi = null;
 
+// Display-only numeric formatting (API values are never rounded or modified).
+// Used as fallback when SaarthiGeo.fmt is unavailable.
+function fmtRain1(x) {
+  if (x === null || x === undefined || !Number.isFinite(Number(x))) return 'No data';
+  return `${Number(Number(x).toFixed(1))} mm`;
+}
+function fmtSoil2(x) {
+  if (x === null || x === undefined || !Number.isFinite(Number(x))) return 'No data';
+  return `${Number(x).toFixed(2)} m³/m³`;
+}
+function fmtPct0(x) {
+  const n = Number(x);
+  return (x === null || x === undefined || !Number.isFinite(n)) ? '—' : `${Math.round(n)}%`;
+}
+function fmtNum1(x) {
+  if (x === null || x === undefined || !Number.isFinite(Number(x))) return '—';
+  return String(Number(Number(x).toFixed(1)));
+}
+
 function soilText(envelope, block) {
   const direct = envelope && envelope.soil;
   if (direct && direct.available && direct.line) return direct.line;
   const sm = block && block.soil_moisture_0_to_7cm_pct;
   if (sm && sm.available && sm.value != null) {
-    return `Forecast surface soil moisture ${sm.value} m³/m³ (ECMWF IFS, 0–7 cm — not a measurement)`;
+    const f = (typeof SaarthiGeo !== 'undefined' && SaarthiGeo.fmt) ? SaarthiGeo.fmt.soil(sm.value) : fmtSoil2(sm.value);
+    return `Forecast surface soil moisture ${f} (ECMWF IFS, 0–7 cm — not a measurement)`;
   }
   return 'Soil data unavailable for this block';
 }
@@ -35,8 +55,10 @@ function renderBlockChips(blocks) {
     panel.innerHTML = `<div class="map-heading"><div><p class="card-kicker">Live ECMWF IFS outlook</p><h4>Sangrur polygon blocks</h4></div></div><p>Live forecast data is currently unavailable. Please try again.</p>`;
     return;
   }
+  const F = (typeof SaarthiGeo !== 'undefined' && SaarthiGeo.fmt) || null;
   const chips = blocks.map((b) => {
-    const cum = b.cum_7d_mm && b.cum_7d_mm.available ? `${b.cum_7d_mm.rainfall_mm} mm / 7d` : '7d total unavailable';
+    const raw = b.cum_7d_mm && b.cum_7d_mm.available ? b.cum_7d_mm.rainfall_mm : null;
+    const cum = raw != null ? `${F ? F.rain(raw) : fmtRain1(raw)} / 7d` : '7d total unavailable';
     return `<li data-block="${b.block_name}" style="cursor:pointer;"><span><b>${b.block_name}</b><small>${cum}</small></span><strong>●</strong></li>`;
   }).join('');
   panel.innerHTML = `<div class="map-heading"><div><p class="card-kicker">Live ECMWF IFS outlook</p><h4>Sangrur polygon blocks (Bhuvan boundaries)</h4></div><span>Next 16 days</span></div><ul class="village-list">${chips}</ul><div class="map-legend"><span>Open-Meteo · ECMWF IFS (ecmwf_ifs)</span></div>`;
@@ -84,13 +106,14 @@ function renderTimeline(block) {
     document.querySelector('.outlook-heading')?.append(panel);
   }
   const rains = days.map((d) => d.rainfall_mm).filter((v) => v !== null && v !== undefined);
+  const F = (typeof SaarthiGeo !== 'undefined' && SaarthiGeo.fmt) || null;
   const max = Math.max(...rains, 1);
   const peak = Math.max(...rains, 0);
   const bars = days.map((d) => {
     const v = d.rainfall_mm;
     const h = (v === null || v === undefined) ? 12 : Math.max(12, Math.round(v / max * 72));
-    const lbl = (v === null || v === undefined) ? 'no data' : `${v} mm`;
-    const prob = (d.rain_probability_pct === null || d.rain_probability_pct === undefined) ? '' : `<br>${d.rain_probability_pct}%`;
+    const lbl = (v === null || v === undefined) ? 'no data' : (F ? F.rain(v) : fmtRain1(v));
+    const prob = (d.rain_probability_pct === null || d.rain_probability_pct === undefined) ? '' : `<br>${fmtPct0(d.rain_probability_pct)}`;
     const isPeak = v !== null && v !== undefined && v === peak;
     return `<div class="rain-day ${isPeak ? 'peak' : ''}"><span>${lbl}</span><i style="height:${h}px"></i><small>D${d.horizon_day}<br>${String(d.date).slice(5)}${prob}</small></div>`;
   }).join('');
@@ -120,7 +143,7 @@ async function loadLongRange(blockName, isLegacy) {
     document.querySelector('#sowing-card')?.append(panel);
   }
   if (!isLegacy) {
-    panel.innerHTML = `<div class="crop-heading"><span>17–30 Day Climatological Outlook</span></div><p>Extended climatological outlook is currently served for Sangrur polygon blocks only. The live 16-day IFS forecast above is unaffected.</p>`;
+    panel.innerHTML = `<div class="crop-heading"><span>17–30 Day Climatological Outlook</span></div><p>Extended climatological outlook is currently served for supported blocks only. The live 16-day IFS forecast above is unaffected.</p>`;
     return;
   }
   try {
@@ -128,7 +151,7 @@ async function loadLongRange(blockName, isLegacy) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const o = await res.json();
     const pct = (v) => (v === null || v === undefined) ? '—' : `${Math.round(v * 100)}%`;
-    const w = (n) => `<p style="margin:0 0 4px;font-size:12.5px;"><b>${n.horizon_label}</b> · ${n.period_start} → ${n.period_end} · climatological normal ${n.climatological_normal_mm} mm · below/near/above ${pct(n.below_probability)}/${pct(n.near_probability)}/${pct(n.above_probability)}</p>`;
+    const w = (n) => `<p style="margin:0 0 4px;font-size:12.5px;"><b>${n.horizon_label}</b> · ${n.period_start} → ${n.period_end} · climatological normal ${fmtNum1(n.climatological_normal_mm)} mm · below/near/above ${pct(n.below_probability)}/${pct(n.near_probability)}/${pct(n.above_probability)}</p>`;
     panel.innerHTML = `<div class="crop-heading"><span>17–30 Day Climatological Outlook (not an IFS forecast)</span></div>${w(o.w3)}${w(o.w4)}<p style="margin:0;font-size:12px;opacity:.8;">Confidence ${o.confidence}${o.confidence_reason ? ' — ' + o.confidence_reason : ''}</p><div class="crop-options"><span><small>Method</small><b>Climatology</b></span><span><small>Probabilities</small><b>tercile prior (1/3 each, not calibrated)</b></span></div>`;
   } catch (err) {
     panel.innerHTML = `<div class="crop-heading"><span>17–30 Day Climatological Outlook (not an IFS forecast)</span></div><p>Extended outlook currently unavailable. Live 16-day IFS forecast above is unaffected.</p>`;
@@ -147,10 +170,12 @@ function renderOutlookView(fc, block, selection) {
   if (locLine) locLine.textContent = label;
   const methodLine = ids('#geo-method-line');
   if (methodLine) methodLine.textContent = methodText(block);
-  if (ids('#rain-7')) ids('#rain-7').textContent = total !== null ? `${total} mm` : 'unavailable';
+  const RF = (typeof SaarthiGeo !== 'undefined' && SaarthiGeo.fmt) || null;
+  const rainLbl = (x) => (RF ? RF.rain(x) : (x !== null ? fmtRain1(x) : 'unavailable'));
+  if (ids('#rain-7')) ids('#rain-7').textContent = total !== null ? rainLbl(total) : 'unavailable';
   if (ids('#dry-14')) ids('#dry-14').textContent = `${dry} / ${wet}`;
-  if (ids('#expected-rain')) ids('#expected-rain').textContent = heaviest && heaviest.date ? `${heaviest.rainfall_mm} mm (${heaviest.date})` : '—';
-  if (ids('#rain-trend')) ids('#rain-trend').textContent = block.cum_3d_mm && block.cum_3d_mm.available ? `${block.cum_3d_mm.rainfall_mm} mm / 3d` : 'unavailable';
+  if (ids('#expected-rain')) ids('#expected-rain').textContent = heaviest && heaviest.date ? `${rainLbl(heaviest.rainfall_mm)} (${heaviest.date})` : '—';
+  if (ids('#rain-trend')) ids('#rain-trend').textContent = block.cum_3d_mm && block.cum_3d_mm.available ? `${rainLbl(block.cum_3d_mm.rainfall_mm)} / 3d` : 'unavailable';
   if (ids('#risk-label')) ids('#risk-label').textContent = 'Live ECMWF IFS outlook';
   if (ids('#risk-probability')) ids('#risk-probability').textContent = `${fc.provider} · ${fc.model}`;
   if (ids('#risk-meter')) ids('#risk-meter').style.width = '20%';
@@ -174,7 +199,7 @@ async function loadRisk(selection, isLegacy, legacyName) {
     if (!isLegacy) {
       if (ids('#decision-status')) ids('#decision-status').textContent = 'Block-level outlook';
       if (ids('#decision-title')) ids('#decision-title').textContent = `Live IFS outlook for ${name}.`;
-      if (ids('#decision-message')) ids('#decision-message').textContent = `Field-work risk scoring is currently served for Sangrur polygon blocks only. The live 16-day rainfall outlook above covers ${name}.`;
+      if (ids('#decision-message')) ids('#decision-message').textContent = `Live ECMWF IFS weather is available for ${name}. Advanced field-risk scoring is currently available for supported blocks only — the live 16-day rainfall outlook above covers this block.`;
       if (ids('#wait-badge')) ids('#wait-badge').innerHTML = '<strong>—</strong>';
       return;
     }

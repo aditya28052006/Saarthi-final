@@ -26,9 +26,17 @@ public class GeographyController {
 
     private final GeographyService geography;
 
+    @Autowired(required = false)
+    private BlockBoundaryService boundaries;
+
     @Autowired
     public GeographyController(GeographyService geography) {
         this.geography = geography;
+    }
+
+    /** Test seam: inject the boundary service without a Spring context. */
+    void setBoundaries(BlockBoundaryService boundaries) {
+        this.boundaries = boundaries;
     }
 
     /** All states in the registry. */
@@ -106,6 +114,47 @@ public class GeographyController {
         public String getError() {
             return error;
         }
+    }
+
+    /**
+     * Display boundary for ONE selected block
+     * ({@code ?state=&district=&block=} codes). Returns a GeoJSON Feature
+     * with the simplified block polygon, or 404 {@code boundary_unavailable}
+     * when no compiled geometry exists (geocoded rows, legacy-only ids) —
+     * never another block's geometry.
+     */
+    @GetMapping("/block-boundary")
+    public ResponseEntity<Map<String, Object>> blockBoundary(
+            @RequestParam(value = "state", required = false) String stateCode,
+            @RequestParam(value = "district", required = false) String districtCode,
+            @RequestParam(value = "block", required = false) String blockCode) {
+        if (stateCode == null || stateCode.isBlank()
+                || districtCode == null || districtCode.isBlank()
+                || blockCode == null || blockCode.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Query parameters 'state', 'district' and 'block' (codes) are required");
+        }
+        if (boundaries == null) {
+            throw new UnknownGeographyException("boundary_unavailable",
+                    "Block boundary service is not loaded");
+        }
+        var geom = boundaries.findBoundary(
+                stateCode.trim(), districtCode.trim(), blockCode.trim());
+        if (geom.isEmpty()) {
+            throw new UnknownGeographyException("boundary_unavailable",
+                    "No compiled boundary for block '"
+                            + stateCode.trim() + ":" + districtCode.trim() + ":"
+                            + blockCode.trim() + "'");
+        }
+        Map<String, Object> props = new LinkedHashMap<>();
+        props.put("state_code", stateCode.trim());
+        props.put("district_code", districtCode.trim());
+        props.put("block_code", blockCode.trim());
+        Map<String, Object> feature = new LinkedHashMap<>();
+        feature.put("type", "Feature");
+        feature.put("properties", props);
+        feature.put("geometry", geom.get());
+        return ResponseEntity.ok(feature);
     }
 
     @ExceptionHandler(UnknownGeographyException.class)
