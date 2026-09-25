@@ -65,3 +65,36 @@ startup if the package is missing or has ≠6 blocks.
 
 7-day horizon only · 6 blocks only · no village-level/onset-guarantee/yield claims ·
 advisories are prototype decision-support guidance · wet day ≥1.0 mm is a heuristic.
+
+## Application database (PostgreSQL) vs ML data
+
+Two data planes, kept strictly separate:
+
+```
+ML DATA / MODEL ARTIFACTS (untouched)      APPLICATION DATABASE (new)
+  data/, models/, notebooks/                 PostgreSQL via Spring Data JPA
+  forecast/ + climate/ JSON packages         Flyway migration V1__farmer_schema.sql
+  shadow JSONL ledgers                       panchayat → officials → farmers
+                                             farmer → farms → crop_plantings
+```
+
+* The farmer database is **operational application data** (Panchayat
+  officials, farmers, farms, historical crop plantings). It is **not**
+  training data and never feeds model training.
+* Schema lives in `src/main/resources/db/migration/V1__farmer_schema.sql`
+  and is applied by Flyway; Hibernate runs with `ddl-auto=validate`.
+* Configure with environment variables (never commit credentials):
+  `SPRING_DATASOURCE_URL` (default
+  `jdbc:postgresql://localhost:5432/saarthidb`),
+  `SPRING_DATASOURCE_USERNAME` (default `saarthi_app`),
+  `SPRING_DATASOURCE_PASSWORD` (default empty).
+* * Tests use ephemeral in-memory H2
+  (`src/test/resources/application.properties`); production uses
+  PostgreSQL. Crop history is append-only; "current crop" is a
+  repository query (`findFirstByFarmIdOrderByCropYearDescCreatedAtDescIdDesc`),
+  never an overwrite.
+* Panchayat officials authenticate using username/password credentials.
+  Passwords are stored as BCrypt hashes, and successful login returns a
+  JWT used to access protected APIs. Panchayat-level access control is
+  enforced by the backend.
+  
